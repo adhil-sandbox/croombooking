@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sandbox · Room Booking</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.4.4/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    /* ============================================================
+   Design tokens — Notion/Linear-inspired, light + dark mode
+   ============================================================ */
+    :root {
+      --bg: #ffffff;
+      --bg-subtle: #f7f7f5;
+      --bg-hover: #efefec;
+      --border: #e6e4e0;
+      --border-strong: #d8d5cf;
+      --text: #191817;
+      --text-muted: #6f6d68;
+      --text-faint: #9a9793;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: #eaf0fe;
+      --room-sb1: #2563eb;
+      --room-sb1-soft: #e8f0fe;
+      --room-sb2: #7c3aed;
+      --room-sb2-soft: #f2ebfe;
+      --ok: #16794f;
+      --ok-soft: #e5f6ee;
+      --warn: #b45309;
+      --warn-soft: #fdf1e0;
+      --danger: #c0362c;
+      --danger-soft: #fbe9e7;
+      --muted-badge: #6f6d68;
+      --muted-badge-soft: #efefec;
+      --radius: 10px;
+      --radius-sm: 7px;
+      --shadow: 0 1px 2px rgba(20, 20, 19, .06), 0 4px 14px rgba(20, 20, 19, .06);
+      --shadow-lg: 0 8px 30px rgba(20, 20, 19, .14);
+      --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #191919;
+      --bg-subtle: #1f1f1f;
+      --bg-hover: #2a2a2a;
+      --border: #2e2e2e;
+      --border-strong: #3a3a3a;
+      --text: #eeeeec;
+      --text-muted: #a3a29e;
+      --text-faint: #726f6a;
+      --accent: #5b8cf7;
+      --accent-hover: #7ba3ff;
+      --accent-soft: #1c2740;
+      --room-sb1: #5b8cf7;
+      --room-sb1-soft: #1c2740;
+      --room-sb2: #a682f5;
+      --room-sb2-soft: #291f42;
+      --ok: #4cbd8c;
+      --ok-soft: #12291f;
+      --warn: #e0a458;
+      --warn-soft: #2e230f;
+      --danger: #ef7368;
+      --danger-soft: #2e1a17;
+      --muted-badge: #a3a29e;
+      --muted-badge-soft: #2a2a2a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 14px rgba(0, 0, 0, .3);
+      --shadow-lg: 0 8px 30px rgba(0, 0, 0, .5);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      transition: background .15s ease, color .15s ease;
+    }
+
+    button {
+      font-family: inherit;
+    }
+
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* ---------- App shell ---------- */
+    #app {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 224px;
+      flex: 0 0 224px;
+      background: var(--bg-subtle);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 10px;
+      gap: 2px;
+    }
+
+    .sidebar .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px 16px 8px;
+      font-weight: 650;
+      font-size: 15px;
+    }
+
+    .brand .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .nav-section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--text-faint);
+      padding: 16px 10px 4px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border-radius: var(--radius-sm);
+    }
+
+    .user-chip:hover {
+      background: var(--bg-hover);
+      cursor: pointer;
+    }
+
+    .avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11.5px;
+      font-weight: 650;
+      flex: 0 0 26px;
+    }
+
+    .user-chip .who {
+      overflow: hidden;
+    }
+
+    .user-chip .name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-chip .role {
+      font-size: 11px;
+      color: var(--text-faint);
+      text-transform: capitalize;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .topbar {
+      height: 56px;
+      flex: 0 0 56px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      gap: 12px;
+    }
+
+    .topbar h1 {
+      font-size: 15px;
+      font-weight: 650;
+      margin: 0;
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .content {
+      flex: 1;
+      overflow: auto;
+      padding: 20px;
+    }
+
+    /* ---------- Buttons / inputs ---------- */
+    .btn {
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .1s, border-color .1s;
+    }
+
+    .btn:hover {
+      background: var(--bg-hover);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      opacity: .9;
+    }
+
+    .btn-ghost {
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg-hover);
+    }
+
+    .btn-sm {
+      padding: 4px 9px;
+      font-size: 12px;
+    }
+
+    .btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+      cursor: pointer;
+    }
+
+    .icon-btn:hover {
+      background: var(--bg-hover);
+    }
+
+    input,
+    select,
+    textarea {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+      color: var(--text);
+      width: 100%;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: -1px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .field {
+      margin-bottom: 12px;
+    }
+
+    .field-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .field-row>.field {
+      flex: 1;
+    }
+
+    /* ---------- Cards / tables ---------- */
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .card+.card {
+      margin-top: 14px;
+    }
+
+    .card h3 {
+      margin: 0 0 12px;
+      font-size: 13.5px;
+      font-weight: 650;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .grid-3 {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .grid-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    @media(max-width:900px) {
+
+      .grid-2,
+      .grid-3,
+      .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      text-align: left;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      color: var(--text-faint);
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--bg-subtle);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 650;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    .badge-confirmed {
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+
+    .badge-pending_approval {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .badge-cancelled {
+      background: var(--muted-badge-soft);
+      color: var(--muted-badge);
+      text-decoration: line-through;
+    }
+
+    .badge-completed {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .badge-rejected {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat .num {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .stat .lbl {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ---------- Calendar ---------- */
+    .cal-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .cal-toolbar .left,
+    .cal-toolbar .right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .segmented {
+      display: flex;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .segmented button {
+      border: none;
+      background: var(--bg);
+      padding: 6px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .segmented button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .segmented button+button {
+      border-left: 1px solid var(--border-strong);
+    }
+
+    .cal-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: auto;
+      background: var(--bg);
+      max-height: calc(100vh - 230px);
+    }
+
+    .cal-grid {
+      display: grid;
+      min-width: 600px;
+    }
+
+    .cal-head-row {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      display: grid;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cal-head-cell {
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 12.5px;
+      font-weight: 650;
+      border-left: 1px solid var(--border);
+    }
+
+    .cal-head-cell:first-child {
+      border-left: none;
+    }
+
+    .cal-head-cell .room-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .cal-time-col {
+      position: sticky;
+      left: 0;
+      z-index: 2;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      width: 64px;
+    }
+
+    .cal-time-label {
+      height: 44px;
+      font-size: 11px;
+      color: var(--text-faint);
+      text-align: right;
+      padding: 2px 8px 0 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .cal-body-row {
+      display: grid;
+      border-top: 1px solid var(--border);
+    }
+
+    .cal-cell {
+      height: 44px;
+      border-left: 1px solid var(--border);
+      position: relative;
+      cursor: pointer;
+    }
+
+    .cal-cell:hover {
+      background: var(--bg-hover);
+    }
+
+    .cal-cell.selecting {
+      background: var(--accent-soft);
+    }
+
+    .cal-slot-block {
+      position: absolute;
+      left: 3px;
+      right: 3px;
+      border-radius: 6px;
+      padding: 4px 7px;
+      font-size: 11px;
+      font-weight: 600;
+      overflow: hidden;
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .15);
+      z-index: 1;
+    }
+
+    .cal-slot-block small {
+      display: block;
+      font-weight: 500;
+      opacity: .9;
+      font-size: 10px;
+    }
+
+    .cal-slot-block.pending_approval {
+      background: repeating-linear-gradient(135deg, var(--warn), var(--warn) 6px, #d99a3d 6px, #d99a3d 12px);
+      color: #fff;
+    }
+
+    .cal-slot-block.cancelled {
+      opacity: .4;
+      text-decoration: line-through;
+    }
+
+    /* ---------- Month View ---------- */
+    .month-grid {
+      display: flex;
+      flex-direction: column;
+      min-width: 700px;
+    }
+
+    .month-head-row {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .month-head-cell {
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--text-muted);
+      border-left: 1px solid var(--border);
+    }
+
+    .month-head-cell:first-child {
+      border-left: none;
+    }
+
+    .month-body {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-auto-rows: minmax(110px, 1fr);
+    }
+
+    .month-day {
+      border-bottom: 1px solid var(--border);
+      border-left: 1px solid var(--border);
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: var(--bg);
+      min-height: 110px;
+      transition: background 0.15s ease;
+      cursor: pointer;
+    }
+
+    .month-day:nth-child(7n+1) {
+      border-left: none;
+    }
+
+    .month-day:hover {
+      background: var(--bg-hover);
+    }
+
+    .month-day.other-month {
+      background: var(--bg-subtle);
+      opacity: 0.55;
+    }
+
+    .month-day.today {
+      background: var(--accent-soft);
+    }
+
+    .month-day.today .month-day-num {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+
+    .month-day-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .month-day-num {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .month-day-add-btn {
+      opacity: 0;
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: bold;
+      transition: opacity 0.15s ease;
+      border: none;
+      background: none;
+      padding: 0;
+    }
+
+    .month-day:hover .month-day-add-btn {
+      opacity: 1;
+    }
+
+    .month-bookings-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow-y: auto;
+      flex-grow: 1;
+      max-height: 120px;
+    }
+
+    .month-booking-pill {
+      font-size: 10.5px;
+      font-weight: 550;
+      padding: 3px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+    }
+
+    .month-booking-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .month-booking-pill .time {
+      font-weight: 600;
+      font-size: 9.5px;
+      color: var(--text-muted);
+    }
+
+    .month-booking-pill.pending_approval {
+      background: repeating-linear-gradient(135deg, var(--warn-soft), var(--warn-soft) 4px, var(--bg-subtle) 4px, var(--bg-subtle) 8px) !important;
+      border: 1px dashed var(--warn);
+    }
+
+    .month-booking-pill.cancelled {
+      text-decoration: line-through;
+      opacity: 0.5;
+    }
+
+    /* ---------- Modal ---------- */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 20, 19, .5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 20px;
+    }
+
+    .modal {
+      background: var(--bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      width: 440px;
+      max-width: 100%;
+      max-height: 90vh;
+      overflow: auto;
+      border: 1px solid var(--border);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 14.5px;
+      font-weight: 650;
+    }
+
+    .modal-body {
+      padding: 18px;
+    }
+
+    .modal-footer {
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .modal-wide {
+      width: 640px;
+    }
+
+    .toast-wrap {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      box-shadow: var(--shadow-lg);
+      max-width: 320px;
+    }
+
+    .toast.err {
+      background: var(--danger);
+    }
+
+    .toast.ok {
+      background: var(--ok);
+    }
+
+    .notice {
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .notice-warn {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .notice-ok {
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+
+    .notice-danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--text-faint);
+      font-size: 13px;
+    }
+
+    /* ---------- Auth screen ---------- */
+    .auth-wrap {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-subtle);
+    }
+
+    .auth-card {
+      width: 340px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px;
+    }
+
+    .auth-card h2 {
+      margin: 0 0 4px;
+      font-size: 17px;
+    }
+
+    .auth-card p {
+      margin: 0 0 20px;
+      color: var(--text-muted);
+      font-size: 12.5px;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .filter-bar select,
+    .filter-bar input {
+      width: auto;
+      min-width: 140px;
+    }
+
+    .heatmap-row {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .heatmap-lbl {
+      width: 56px;
+      font-size: 11px;
+      color: var(--text-muted);
+      flex: 0 0 56px;
+    }
+
+    .heatmap-cell {
+      flex: 1;
+      height: 20px;
+      border-radius: 3px;
+    }
+
+    @media(max-width:760px) {
+      .sidebar {
+        position: fixed;
+        left: -224px;
+        top: 0;
+        bottom: 0;
+        z-index: 40;
+        transition: left .18s ease;
+        box-shadow: var(--shadow-lg);
+      }
+
+      .sidebar.open {
+        left: 0;
+      }
+
+      .modal-wide {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Auth gate: shown until someone signs in. Nobody uses the app unauthenticated. -->
+  <div class="auth-wrap" id="authGate">
+    <div class="auth-card">
+      <h2>Sandbox Rooms</h2>
+      <p>Sign in with your company or admin account to book a room.</p>
+      <div id="authError"></div>
+      <div class="field"><label>Email</label><input id="authEmail" type="email" placeholder="you@company.com" /></div>
+      <div class="field"><label>Password</label><input id="authPassword" type="password" placeholder="••••••••" /></div>
+      <button class="btn btn-primary" id="authSubmit" style="width:100%; justify-content:center;">Sign in</button>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="brand"><span class="dot"></span> Sandbox Rooms</div>
+
+      <div id="actingBox">
+        <div class="nav-section-label">Booking as</div>
+        <div class="field" style="padding:0 10px;">
+          <div id="actingCompanyName" style="font-weight:650; font-size:13px; padding:4px 0 8px;"></div>
+          <select id="actingMember"></select>
+        </div>
+      </div>
+
+      <div class="nav-item" data-view="calendar">📅 Book a room</div>
+      <div class="nav-item" data-view="mybookings">🗂 Bookings</div>
+
+      <div id="adminNav" class="hidden">
+        <div class="nav-section-label">Admin</div>
+        <div class="nav-item" data-view="approvals">✅ Approvals <span id="approvalCount"
+            style="margin-left:auto;"></span></div>
+        <div class="nav-item" data-view="members">🏢 Members</div>
+        <div class="nav-item" data-view="dashboard">📊 Dashboard</div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar" id="userAvatar">··</div>
+          <div class="who">
+            <div class="name" id="userName">—</div>
+            <div class="role" id="userRole">—</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%; justify-content:center; margin-top:6px;"
+          id="logoutBtn">Sign out</button>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      <div class="topbar">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <button class="icon-btn hidden" id="mobileMenuBtn" style="display:none;">☰</button>
+          <h1 id="pageTitle">Book a room</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="darkModeBtn" title="Toggle theme">🌙</button>
+          <button class="icon-btn" id="notifBtn" title="Notifications">🔔<span id="notifDot"
+              style="display:none;width:7px;height:7px;background:var(--danger);border-radius:50%;position:relative;top:-8px;right:6px;"></span></button>
+        </div>
+      </div>
+      <div class="content" id="content"><!-- views render here --></div>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script>
+    /* ============================================================
+       CONFIG — fill these in from your Supabase project settings
+       (Project Settings → API). The anon key is safe to expose
+       client-side; RLS policies in schema.sql do the real access
+       control.
+       ============================================================ */
+    const SUPABASE_URL = "https://zqbenwqventomamsupnf.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxYmVud3F2ZW50b21hbXN1cG5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4MzIwNDAsImV4cCI6MjEwMTQwODA0MH0.DsDtSYADQIlDmdnDPJYz-ScT9ewbql-rxKvzNLLZR6w";
+
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    /* ============================================================
+       Constants
+       ============================================================ */
+    const BUSINESS_START = "09:30";
+    const BUSINESS_END = "18:00";
+    const SLOT_MINUTES = 30;
+    const MAX_DAILY_HOURS = 4;
+    const ROOM_COLORS = {}; // filled once rooms load: name -> css var
+
+    function timeToMinutes(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+    function minutesToTime(m) { const h = Math.floor(m / 60).toString().padStart(2, "0"); const mm = (m % 60).toString().padStart(2, "0"); return `${h}:${mm}`; }
+    function buildSlots() {
+      const slots = [];
+      for (let m = timeToMinutes(BUSINESS_START); m < timeToMinutes(BUSINESS_END); m += SLOT_MINUTES) {
+        slots.push(minutesToTime(m));
+      }
+      return slots;
+    }
+    const SLOTS = buildSlots(); // 17 slots, 9:30 -> 17:30 start times
+
+    function fmtDate(d) { // yyyy-mm-dd
+      if (typeof d === "string") return d;
+      return d.toISOString().slice(0, 10);
+    }
+    function fmtDisplayDate(dateStr) {
+      const d = new Date(dateStr + "T00:00:00");
+      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    }
+    function fmtTime12(t) {
+      const [h, m] = t.split(":").map(Number);
+      const ampm = h >= 12 ? "PM" : "AM";
+      const hh = h % 12 === 0 ? 12 : h % 12;
+      return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
+    }
+    function currentYearMonth(dateStr) { return (dateStr || fmtDate(new Date())).slice(0, 7); }
+    function addDays(dateStr, n) { const d = new Date(dateStr + "T00:00:00"); d.setDate(d.getDate() + n); return fmtDate(d); }
+    function startOfWeek(dateStr) { const d = new Date(dateStr + "T00:00:00"); const day = d.getDay(); const diff = day === 0 ? -6 : 1 - day; d.setDate(d.getDate() + diff); return fmtDate(d); }
+    function addMonths(dateStr, n) { const d = new Date(dateStr + "T00:00:00"); d.setMonth(d.getMonth() + n); return fmtDate(d); }
+    function fmtMonthYear(dateStr) { const d = new Date(dateStr + "T00:00:00"); return d.toLocaleDateString(undefined, { month: "long", year: "numeric" }); }
+    function getMonthGridRange(dateStr) {
+      const d = new Date(dateStr + "T00:00:00");
+      const year = d.getFullYear();
+      const month = d.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const startDay = firstDay.getDay(); // 0 is Sunday
+      const diffStart = startDay === 0 ? -6 : 1 - startDay; // Mon is first day
+      const gridStart = new Date(firstDay);
+      gridStart.setDate(firstDay.getDate() + diffStart);
+      const lastDay = new Date(year, month + 1, 0);
+      const endDay = lastDay.getDay();
+      const diffEnd = endDay === 0 ? 0 : 7 - endDay;
+      const gridEnd = new Date(lastDay);
+      gridEnd.setDate(lastDay.getDate() + diffEnd);
+      return { start: fmtDate(gridStart), end: fmtDate(gridEnd) };
+    }
+
+    function toast(msg, type = "") {
+      const el = document.createElement("div");
+      el.className = "toast" + (type ? " " + type : "");
+      el.textContent = msg;
+      document.getElementById("toastWrap").appendChild(el);
+      setTimeout(() => el.remove(), 4200);
+    }
+
+    /* ============================================================
+       Global state
+       ============================================================ */
+    const state = {
+      user: null,           // auth.users row — only set once an admin signs in
+      profile: null,        // profiles row {role, full_name} — admins only
+      isAdmin: false,
+      rooms: [],
+      companies: [],
+      members: [],
+      bookings: [],          // bookings visible for current calendar range
+      monthlyUsage: {},       // company_id -> {hours_used, extra_hours_used}
+      notifications: [],
+      view: "calendar",
+      calMode: "week",        // 'day' | 'week'
+      calAnchor: fmtDate(new Date()),
+      selection: null,        // {roomId, date, startMin, endMin} while dragging
+      theme: localStorage.getItem("sb_theme") || "light",
+      actingCompanyId: null,   // set from the signed-in company's profile; null for admins
+      actingMemberId: localStorage.getItem("sb_acting_member_id") || null,
+    };
+
+    function actingCompany() { return state.companies.find(c => c.id === state.actingCompanyId) || null; }
+    function actingMember() { return state.members.find(m => m.id === state.actingMemberId) || null; }
+
+    document.documentElement.setAttribute("data-theme", state.theme);
+    document.getElementById("darkModeBtn").textContent = state.theme === "dark" ? "☀️" : "🌙";
+
+    /* ============================================================
+       Auth — everyone signs in: a company logs into its own account
+       (profiles.role='member', tied to one company_id), an admin logs
+       into theirs (profiles.role='admin'). Nobody uses the app
+       unauthenticated — the auth gate blocks the UI until a session
+       with a recognized profile exists.
+       ============================================================ */
+    async function initAuth() {
+      sb.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_IN" && session) onSignedIn(session);
+        if (event === "SIGNED_OUT") onSignedOut();
+      });
+
+      const { data: { session } } = await sb.auth.getSession();
+      if (session) await onSignedIn(session);
+    }
+
+    async function onSignedIn(session) {
+      state.user = session.user;
+      const { data: profile, error } = await sb.from("profiles").select("*").eq("id", state.user.id).single();
+      if (error || !profile) {
+        toast("That account isn't set up to use this app. Ask an admin to link it.", "err");
+        await sb.auth.signOut();
+        return;
+      }
+      state.profile = profile;
+      state.isAdmin = profile.role === "admin";
+      state.actingCompanyId = profile.role === "member" ? profile.company_id : null;
+
+      document.getElementById("authGate").classList.add("hidden");
+      document.getElementById("app").classList.remove("hidden");
+      document.getElementById("adminNav").classList.toggle("hidden", !state.isAdmin);
+      document.getElementById("actingBox").classList.toggle("hidden", state.isAdmin);
+      document.getElementById("userRole").textContent = state.isAdmin ? "admin" : "company login";
+      document.getElementById("userAvatar").textContent = (profile.full_name || state.user.email || "??").slice(0, 2).toUpperCase();
+
+      await loadStaticData();
+      document.getElementById("userName").textContent = profile.full_name || actingCompany()?.name || state.user.email;
+      renderActingBox();
+      setView("calendar");
+      refreshNotifBadge();
+    }
+
+    function onSignedOut() {
+      state.user = null; state.profile = null; state.isAdmin = false; state.actingCompanyId = null; state.actingMemberId = null;
+      document.getElementById("app").classList.add("hidden");
+      document.getElementById("authGate").classList.remove("hidden");
+      document.getElementById("authEmail").value = "";
+      document.getElementById("authPassword").value = "";
+    }
+
+    async function doSignIn() {
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+      const errBox = document.getElementById("authError");
+      errBox.innerHTML = "";
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) { errBox.innerHTML = `<div class="notice notice-danger">${error.message}</div>`; return; }
+    }
+
+    document.getElementById("authSubmit").addEventListener("click", doSignIn);
+    document.getElementById("authPassword").addEventListener("keydown", (e) => { if (e.key === "Enter") doSignIn(); });
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await sb.auth.signOut();
+    });
+
+    /* ============================================================
+       "Booking as" — shows the signed-in company (fixed, not
+       selectable — that's what the login IS now) and lets that
+       company pick which of its own contacts is acting. Hidden
+       entirely for admins, who choose a company explicitly per
+       booking instead (see the New Booking modal).
+       ============================================================ */
+    function renderActingBox() {
+      if (state.isAdmin) return; // #actingBox already hidden
+      const memberSel = document.getElementById("actingMember");
+      document.getElementById("actingCompanyName").textContent = actingCompany()?.name || "—";
+      const companyMembers = state.members.filter(m => m.is_active && m.company_id === state.actingCompanyId);
+      memberSel.innerHTML = `<option value="">Select contact…</option>` +
+        companyMembers.map(m => `<option value="${m.id}" ${m.id === state.actingMemberId ? "selected" : ""}>${m.contact_name}</option>`).join("");
+      if (!companyMembers.some(m => m.id === state.actingMemberId)) state.actingMemberId = null;
+      memberSel.onchange = () => {
+        state.actingMemberId = memberSel.value || null;
+        localStorage.setItem("sb_acting_member_id", state.actingMemberId || "");
+        render();
+      };
+    }
+
+    /* ============================================================
+       Theme
+       ============================================================ */
+    document.getElementById("darkModeBtn").addEventListener("click", () => {
+      state.theme = state.theme === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", state.theme);
+      localStorage.setItem("sb_theme", state.theme);
+      document.getElementById("darkModeBtn").textContent = state.theme === "dark" ? "☀️" : "🌙";
+    });
+
+    /* ============================================================
+       Nav
+       ============================================================ */
+    document.querySelectorAll(".nav-item[data-view]").forEach(el => {
+      el.addEventListener("click", () => setView(el.dataset.view));
+    });
+
+    const VIEW_TITLES = {
+      calendar: "Book a room", mybookings: "Bookings", approvals: "Approval queue",
+      members: "Members", dashboard: "Dashboard"
+    };
+
+    function setView(view) {
+      state.view = view;
+      document.querySelectorAll(".nav-item[data-view]").forEach(el => {
+        el.classList.toggle("active", el.dataset.view === view);
+      });
+      document.getElementById("pageTitle").textContent = VIEW_TITLES[view] || "";
+      render();
+    }
+
+    /* ============================================================
+       Data loading
+       ============================================================ */
+    async function loadStaticData() {
+      // Every signed-in login reads active rooms; a company login's RLS scope
+      // naturally limits companies/members to just its own row(s), while an
+      // admin's RLS scope sees everyone, including inactive rows.
+      const [{ data: rooms }, { data: companies }, { data: members }] = await Promise.all([
+        sb.from("rooms").select("*").eq("is_active", true).order("name"),
+        sb.from("companies").select("*").order("name"),
+        sb.from("members").select("*, companies(name,category)").order("contact_name"),
+      ]);
+      state.rooms = rooms || [];
+      state.companies = companies || [];
+      state.members = members || [];
+      state.rooms.forEach((r, i) => { ROOM_COLORS[r.id] = i % 2 === 0 ? "sb1" : "sb2"; });
+      await loadMonthlyUsage();
+    }
+
+    async function loadMonthlyUsage() {
+      const ym = currentYearMonth();
+      let q = sb.from("monthly_usage").select("*").eq("year_month", ym);
+      const { data } = await q;
+      state.monthlyUsage = {};
+      (data || []).forEach(row => state.monthlyUsage[row.company_id] = row);
+    }
+
+    async function loadBookingsForRange(startDate, endDate) {
+      const { data, error } = await sb.from("bookings")
+        .select("*, companies(name,category), members(contact_name), rooms(name)")
+        .gte("booking_date", startDate)
+        .lte("booking_date", endDate)
+        .neq("status", "cancelled")
+        .order("start_time");
+      if (error) { toast("Failed to load bookings: " + error.message, "err"); return []; }
+      return data || [];
+    }
+
+    async function loadNotifications() {
+      let q;
+      if (state.isAdmin) {
+        q = sb.from("notifications").select("*").eq("recipient_type", "admin").order("created_at", { ascending: false }).limit(30);
+      } else if (actingMember()) {
+        q = sb.from("notifications").select("*").eq("recipient_type", "member").eq("recipient_id", actingMember().id).order("created_at", { ascending: false }).limit(30);
+      } else {
+        state.notifications = []; return;
+      }
+      const { data } = await q;
+      state.notifications = data || [];
+    }
+
+    async function refreshNotifBadge() {
+      await loadNotifications();
+      // Anon visitors have no reliable read/unread state (no identity to track it
+      // against), so just show the dot whenever there's anything recent.
+      const unread = state.isAdmin ? state.notifications.filter(n => !n.is_read).length : state.notifications.length;
+      document.getElementById("notifDot").style.display = unread > 0 ? "inline-block" : "none";
+      if (state.isAdmin) {
+        const { count } = await sb.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending_approval");
+        document.getElementById("approvalCount").innerHTML = count ? `<span class="badge badge-pending_approval">${count}</span>` : "";
+      }
+    }
+
+    /* ============================================================
+       Router / render
+       ============================================================ */
+    const content = document.getElementById("content");
+
+    function render() {
+      if (state.view === "calendar") return renderCalendarView();
+      if (state.view === "mybookings") return renderMyBookingsView();
+      if (state.view === "approvals") return renderApprovalsView();
+      if (state.view === "members") return renderMembersView();
+      if (state.view === "dashboard") return renderDashboardView();
+    }
+
+    /* ============================================================
+       CALENDAR VIEW
+       ============================================================ */
+    async function renderCalendarView() {
+      const anchor = state.calAnchor;
+
+      let rangeStart, rangeEnd;
+      if (state.calMode === "month") {
+        const range = getMonthGridRange(anchor);
+        rangeStart = range.start;
+        rangeEnd = range.end;
+      } else {
+        rangeStart = state.calMode === "week" ? startOfWeek(anchor) : anchor;
+        rangeEnd = state.calMode === "week" ? addDays(rangeStart, 6) : anchor;
+      }
+
+      state.bookings = await loadBookingsForRange(rangeStart, rangeEnd);
+
+      let days = [];
+      if (state.calMode === "month") {
+        const totalDays = Math.round((new Date(rangeEnd + "T00:00:00") - new Date(rangeStart + "T00:00:00")) / (1000 * 60 * 60 * 24)) + 1;
+        days = Array.from({ length: totalDays }, (_, i) => addDays(rangeStart, i));
+      } else {
+        days = state.calMode === "week"
+          ? Array.from({ length: 7 }, (_, i) => addDays(rangeStart, i))
+          : [anchor];
+      }
+
+      let titleStr = "";
+      if (state.calMode === "month") {
+        titleStr = fmtMonthYear(anchor);
+      } else if (state.calMode === "week") {
+        titleStr = `${fmtDisplayDate(rangeStart)} – ${fmtDisplayDate(rangeEnd)}`;
+      } else {
+        titleStr = fmtDisplayDate(anchor);
+      }
+
+      let gridHtml = "";
+      if (state.calMode === "month") {
+        gridHtml = `
+          <div class="month-grid">
+            <div class="month-head-row">
+              <div class="month-head-cell">Mon</div>
+              <div class="month-head-cell">Tue</div>
+              <div class="month-head-cell">Wed</div>
+              <div class="month-head-cell">Thu</div>
+              <div class="month-head-cell">Fri</div>
+              <div class="month-head-cell">Sat</div>
+              <div class="month-head-cell">Sun</div>
+            </div>
+            <div class="month-body">
+              ${days.map(day => {
+                const isOtherMonth = day.slice(0, 7) !== anchor.slice(0, 7);
+                const isToday = day === fmtDate(new Date());
+                const dayNum = Number(day.slice(8, 10));
+                const dayBookings = state.bookings.filter(b => b.booking_date === day);
+
+                return `
+                  <div class="month-day ${isOtherMonth ? 'other-month' : ''} ${isToday ? 'today' : ''}" data-day="${day}">
+                    <div class="month-day-header">
+                      <span class="month-day-num">${dayNum}</span>
+                      <button class="month-day-add-btn" title="Add booking" data-day="${day}">+</button>
+                    </div>
+                    <div class="month-bookings-list">
+                      ${dayBookings.map(b => {
+                        const statusClass = b.status === "pending_approval" ? "pending_approval" : (b.status === "cancelled" ? "cancelled" : "");
+                        return `
+                          <div class="month-booking-pill ${statusClass}"
+                               style="background: var(--room-${ROOM_COLORS[b.room_id]}-soft); border-left: 3px solid var(--room-${ROOM_COLORS[b.room_id]}); color: var(--text);"
+                               data-booking="${b.id}"
+                               title="${b.companies?.name || ''} · ${b.rooms?.name} · ${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))}">
+                            <span class="time">${fmtTime12(b.start_time.slice(0, 5))} <span style="font-weight:700;color:var(--room-${ROOM_COLORS[b.room_id]});">${b.rooms?.name}</span></span>
+                            <span class="company">${b.companies?.name || '—'}</span>
+                          </div>
+                        `;
+                      }).join("")}
+                    </div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          </div>
+        `;
+      } else {
+        const columns = []; // one column per (day, room) combination
+        days.forEach(day => {
+          state.rooms.forEach(room => columns.push({ day, room }));
+        });
+
+        gridHtml = `
+          <div class="cal-grid" style="grid-template-columns:64px repeat(${columns.length}, minmax(120px,1fr));">
+            <div class="cal-head-row" style="grid-template-columns:64px repeat(${columns.length}, minmax(120px,1fr)); grid-column: 1 / -1;">
+              <div class="cal-head-cell" style="border-left:none;"></div>
+              ${columns.map(c => `
+                <div class="cal-head-cell">
+                  <span class="room-dot" style="background:var(--room-${ROOM_COLORS[c.room.id]})"></span>${c.room.name}
+                  ${state.calMode === "week" ? `<div style="font-weight:500;color:var(--text-faint);font-size:11px;">${fmtDisplayDate(c.day)}</div>` : ""}
+                </div>`).join("")}
+            </div>
+            <div class="cal-time-col">
+              ${SLOTS.map(s => `<div class="cal-time-label">${fmtTime12(s)}</div>`).join("")}
+            </div>
+            ${columns.map((c, ci) => `
+              <div style="grid-column:${ci + 2}; grid-row:2; display:flex; flex-direction:column; position:relative;">
+                ${SLOTS.map(s => `<div class="cal-cell" data-room="${c.room.id}" data-day="${c.day}" data-time="${s}"></div>`).join("")}
+                ${renderSlotBlocks(c.room.id, c.day)}
+              </div>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      content.innerHTML = `
+    <div class="cal-toolbar">
+      <div class="left">
+        <button class="icon-btn" id="calPrev">←</button>
+        <button class="btn btn-sm" id="calToday">Today</button>
+        <button class="icon-btn" id="calNext">→</button>
+        <strong style="margin-left:6px;font-size:13.5px;">${titleStr}</strong>
+      </div>
+      <div class="right">
+        <div class="segmented">
+          <button data-mode="day" class="${state.calMode === "day" ? "active" : ""}">Day</button>
+          <button data-mode="week" class="${state.calMode === "week" ? "active" : ""}">Week</button>
+          <button data-mode="month" class="${state.calMode === "month" ? "active" : ""}">Month</button>
+        </div>
+        <button class="btn btn-primary btn-sm" id="newBookingBtn">+ New booking</button>
+      </div>
+    </div>
+    <div id="quotaBanner"></div>
+    <div class="cal-wrap">
+      ${gridHtml}
+    </div>
+  `;
+
+      document.getElementById("calPrev").onclick = () => {
+        state.calAnchor = state.calMode === "month" ? addMonths(state.calAnchor, -1) : addDays(state.calAnchor, state.calMode === "week" ? -7 : -1);
+        renderCalendarView();
+      };
+      document.getElementById("calNext").onclick = () => {
+        state.calAnchor = state.calMode === "month" ? addMonths(state.calAnchor, 1) : addDays(state.calAnchor, state.calMode === "week" ? 7 : 1);
+        renderCalendarView();
+      };
+      document.getElementById("calToday").onclick = () => { state.calAnchor = fmtDate(new Date()); renderCalendarView(); };
+      document.querySelectorAll(".segmented button[data-mode]").forEach(b => {
+        b.onclick = () => { state.calMode = b.dataset.mode; renderCalendarView(); };
+      });
+      document.getElementById("newBookingBtn").onclick = () => openBookingModal({});
+
+      if (state.calMode === "month") {
+        content.querySelectorAll(".month-day-add-btn").forEach(btn => {
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            openBookingModal({ date: btn.dataset.day });
+          };
+        });
+        content.querySelectorAll(".month-day").forEach(cell => {
+          cell.onclick = (e) => {
+            if (e.target.closest(".month-booking-pill") || e.target.closest(".month-day-add-btn")) return;
+            openBookingModal({ date: cell.dataset.day });
+          };
+        });
+        content.querySelectorAll(".month-booking-pill").forEach(pill => {
+          pill.onclick = (e) => {
+            e.stopPropagation();
+            openBookingDetail(pill.dataset.booking);
+          };
+        });
+      } else {
+        // click-drag range selection
+        let dragStart = null;
+        content.querySelectorAll(".cal-cell").forEach(cell => {
+          cell.addEventListener("mousedown", () => { dragStart = cell; clearSelectionHighlight(); cell.classList.add("selecting"); });
+          cell.addEventListener("mouseenter", () => {
+            if (!dragStart) return;
+            if (dragStart.dataset.room !== cell.dataset.room || dragStart.dataset.day !== cell.dataset.day) return;
+            highlightRange(dragStart, cell);
+          });
+          cell.addEventListener("click", (e) => {
+            if (dragStart && dragStart === cell) {
+              openBookingModal({ roomId: cell.dataset.room, date: cell.dataset.day, startTime: cell.dataset.time });
+            }
+          });
+        });
+        document.addEventListener("mouseup", () => {
+          if (dragStart) {
+            const cells = content.querySelectorAll(`.cal-cell.selecting[data-room="${dragStart.dataset.room}"][data-day="${dragStart.dataset.day}"]`);
+            if (cells.length > 1) {
+              const times = Array.from(cells).map(c => c.dataset.time).sort();
+              const startTime = times[0];
+              const endTime = minutesToTime(timeToMinutes(times[times.length - 1]) + SLOT_MINUTES);
+              openBookingModal({ roomId: dragStart.dataset.room, date: dragStart.dataset.day, startTime, endTime });
+            }
+          }
+          dragStart = null;
+        }, { once: false });
+      }
+
+      renderQuotaBanner();
+    }
+
+    function clearSelectionHighlight() { content.querySelectorAll(".cal-cell.selecting").forEach(c => c.classList.remove("selecting")); }
+    function highlightRange(a, b) {
+      clearSelectionHighlight();
+      const cells = content.querySelectorAll(`.cal-cell[data-room="${a.dataset.room}"][data-day="${a.dataset.day}"]`);
+      const startIdx = Array.from(cells).indexOf(a);
+      const endIdx = Array.from(cells).indexOf(b);
+      const [lo, hi] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+      Array.from(cells).slice(lo, hi + 1).forEach(c => c.classList.add("selecting"));
+    }
+
+    function renderSlotBlocks(roomId, day) {
+      const items = state.bookings.filter(b => b.room_id === roomId && b.booking_date === day);
+      return items.map(b => {
+        const top = ((timeToMinutes(b.start_time.slice(0, 5)) - timeToMinutes(BUSINESS_START)) / SLOT_MINUTES) * 44;
+        const height = ((timeToMinutes(b.end_time.slice(0, 5)) - timeToMinutes(b.start_time.slice(0, 5))) / SLOT_MINUTES) * 44 - 3;
+        const colorVar = `var(--room-${ROOM_COLORS[roomId]})`;
+        const statusClass = b.status === "pending_approval" ? "pending_approval" : (b.status === "cancelled" ? "cancelled" : "");
+        return `<div class="cal-slot-block ${statusClass}" style="top:${top + 1}px; height:${height}px; ${statusClass ? '' : `background:${colorVar};`}"
+                 title="${b.companies?.name || ''} · ${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))}"
+                 data-booking="${b.id}">
+              ${b.companies?.name || "—"}
+              <small>${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))}${b.status === "pending_approval" ? " · pending" : ""}</small>
+            </div>`;
+      }).join("");
+    }
+
+    async function renderQuotaBanner() {
+      const banner = document.getElementById("quotaBanner");
+      if (!banner) return;
+      const company = actingCompany();
+      if (!company) {
+        banner.innerHTML = state.isAdmin
+          ? `<div class="notice notice-warn"><span>👋</span><span>Pick a company in the New Booking dialog to see its quota.</span></div>`
+          : `<div class="notice notice-warn"><span>👋</span><span>Your company login isn't linked to a company yet — ask an admin to fix this.</span></div>`;
+        return;
+      }
+      await loadMonthlyUsage();
+      const usage = state.monthlyUsage[company.id] || { hours_used: 0, extra_hours_used: 0 };
+      const remaining = Math.max(0, company.monthly_hours_allocation - usage.hours_used);
+      const pct = Math.min(100, Math.round((usage.hours_used / company.monthly_hours_allocation) * 100));
+      banner.innerHTML = `<div class="notice ${remaining <= 0 ? 'notice-warn' : 'notice-ok'}">
+    <span>📊</span>
+    <span><strong>${company.name}</strong> — ${usage.hours_used}h used of ${company.monthly_hours_allocation}h this month (${pct}%), <strong>${remaining}h</strong> remaining.
+    ${usage.extra_hours_used > 0 ? ` ${usage.extra_hours_used}h extra approved beyond quota.` : ""}
+    Daily limit is ${MAX_DAILY_HOURS}h per member.</span>
+  </div>`;
+    }
+
+    /* Delegate click on slot blocks to open a detail/cancel modal */
+    content.addEventListener("click", (e) => {
+      const block = e.target.closest(".cal-slot-block");
+      if (block) openBookingDetail(block.dataset.booking);
+    });
+
+    /* ============================================================
+       BOOKING MODAL (create)
+       ============================================================ */
+    function openBookingModal(prefill) {
+      const companyOptions = state.companies.filter(c => c.is_active)
+        .map(c => `<option value="${c.id}" ${c.id === state.actingCompanyId ? "selected" : ""}>${c.name}${c.category === 'virtual_office' ? ' (Virtual Office)' : ''}</option>`).join("");
+      const roomOptions = state.rooms.map(r => `<option value="${r.id}" ${prefill.roomId === r.id ? "selected" : ""}>${r.name} · ${r.seats} seats</option>`).join("");
+      const timeOptions = SLOTS.concat([BUSINESS_END]).map(t => `<option value="${t}">${fmtTime12(t)}</option>`).join("");
+
+      const el = document.createElement("div");
+      el.className = "modal-backdrop";
+      el.innerHTML = `
+    <div class="modal">
+      <div class="modal-header"><h3>New booking</h3><button class="icon-btn" id="closeModal">✕</button></div>
+      <div class="modal-body">
+        <div id="modalNotice"></div>
+        <div class="field">
+          <label>Company</label>
+          <select id="mCompany">${companyOptions}</select>
+        </div>
+        <div class="field" id="memberField">
+          <label>Member (contact person)</label>
+          <select id="mMember"></select>
+        </div>
+        <div class="field">
+          <label>Conference room</label>
+          <select id="mRoom">${roomOptions}</select>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="mDate" value="${prefill.date || fmtDate(new Date())}" min="${fmtDate(new Date())}" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Start time</label>
+            <select id="mStart">${timeOptions}</select>
+          </div>
+          <div class="field">
+            <label>End time</label>
+            <select id="mEnd">${timeOptions}</select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Notes (optional)</label>
+          <textarea id="mNotes" rows="2" placeholder="Purpose of the meeting..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="cancelModal">Cancel</button>
+        <button class="btn btn-primary" id="submitBooking">Book room</button>
+      </div>
+    </div>
+  `;
+      document.body.appendChild(el);
+      el.querySelector("#closeModal").onclick = () => el.remove();
+      el.querySelector("#cancelModal").onclick = () => el.remove();
+      el.addEventListener("mousedown", (e) => { if (e.target === el) el.remove(); });
+
+      if (prefill.startTime) el.querySelector("#mStart").value = prefill.startTime;
+      if (prefill.endTime) el.querySelector("#mEnd").value = prefill.endTime;
+      else {
+        const idx = SLOTS.indexOf(prefill.startTime);
+        if (idx >= 0 && idx + 1 < SLOTS.length) el.querySelector("#mEnd").value = SLOTS[idx + 1];
+      }
+
+      function populateMembers() {
+        const companyId = el.querySelector("#mCompany").value;
+        const members = state.members.filter(m => m.is_active && m.company_id === companyId);
+        el.querySelector("#mMember").innerHTML = members.map(m => `<option value="${m.id}">${m.contact_name}</option>`).join("")
+          || `<option value="">No active members for this company</option>`;
+        if (companyId === state.actingCompanyId && state.actingMemberId) el.querySelector("#mMember").value = state.actingMemberId;
+      }
+      el.querySelector("#mCompany").onchange = populateMembers;
+      populateMembers();
+
+      el.querySelector("#submitBooking").onclick = () => submitBooking(el);
+    }
+
+    async function submitBooking(el) {
+      const notice = el.querySelector("#modalNotice");
+      notice.innerHTML = "";
+      const companyId = el.querySelector("#mCompany").value;
+      const memberId = el.querySelector("#mMember").value;
+      const roomId = el.querySelector("#mRoom").value;
+      const date = el.querySelector("#mDate").value;
+      const startTime = el.querySelector("#mStart").value;
+      const endTime = el.querySelector("#mEnd").value;
+      const notesVal = el.querySelector("#mNotes").value.trim();
+
+      if (!companyId || !memberId || !roomId || !date || !startTime || !endTime) {
+        notice.innerHTML = `<div class="notice notice-danger">Please fill in all fields.</div>`; return;
+      }
+      const startMin = timeToMinutes(startTime), endMin = timeToMinutes(endTime);
+      if (endMin <= startMin) {
+        notice.innerHTML = `<div class="notice notice-danger">End time must be after start time.</div>`; return;
+      }
+      if (startMin < timeToMinutes(BUSINESS_START) || endMin > timeToMinutes(BUSINESS_END)) {
+        notice.innerHTML = `<div class="notice notice-danger">Bookings must fall within business hours (9:30 AM – 6:00 PM).</div>`; return;
+      }
+      const hours = (endMin - startMin) / 60;
+      if (hours > MAX_DAILY_HOURS) {
+        notice.innerHTML = `<div class="notice notice-danger">A single booking can't exceed the ${MAX_DAILY_HOURS}-hour daily limit.</div>`; return;
+      }
+
+      // Daily limit check: sum this member's active bookings that day (any room) + this new one
+      const { data: dayBookings } = await sb.from("bookings").select("hours,status")
+        .eq("member_id", memberId).eq("booking_date", date).in("status", ["confirmed", "pending_approval", "completed"]);
+      const usedToday = (dayBookings || []).reduce((s, b) => s + Number(b.hours), 0);
+      if (usedToday + hours > MAX_DAILY_HOURS) {
+        notice.innerHTML = `<div class="notice notice-danger">This member already has ${usedToday}h booked today. Max is ${MAX_DAILY_HOURS}h/day.</div>`; return;
+      }
+
+      // Overlap pre-check (DB exclusion constraint is the real guarantee)
+      const { data: overlaps } = await sb.from("bookings").select("id,start_time,end_time")
+        .eq("room_id", roomId).eq("booking_date", date).in("status", ["confirmed", "pending_approval", "completed"]);
+      const conflict = (overlaps || []).some(b => startMin < timeToMinutes(b.end_time.slice(0, 5)) && endMin > timeToMinutes(b.start_time.slice(0, 5)));
+      if (conflict) {
+        notice.innerHTML = `<div class="notice notice-danger">That room is already booked for part of this time range.</div>`; return;
+      }
+
+      // Quota check
+      const company = state.companies.find(c => c.id === companyId);
+      const ym = currentYearMonth(date);
+      const { data: usageRow } = await sb.from("monthly_usage").select("*").eq("company_id", companyId).eq("year_month", ym).maybeSingle();
+      const usedThisMonth = usageRow ? Number(usageRow.hours_used) : 0;
+      const allocation = Number(company.monthly_hours_allocation);
+      const wouldTotal = usedThisMonth + hours;
+
+      let status = "confirmed";
+      let extraHours = 0;
+      if (wouldTotal > allocation) {
+        status = "pending_approval";
+        extraHours = Math.min(hours, wouldTotal - allocation);
+      }
+
+      const { data: inserted, error } = await sb.from("bookings").insert({
+        company_id: companyId, member_id: memberId, room_id: roomId,
+        booking_date: date, start_time: startTime, end_time: endTime,
+        hours, extra_hours: extraHours, status, notes: notesVal || null,
+        created_by: state.user?.id || null
+      }).select().single();
+
+      if (error) {
+        notice.innerHTML = `<div class="notice notice-danger">${error.message.includes("no_overlapping") ? "That room is already booked for this time." : error.message}</div>`;
+        return;
+      }
+
+      // Notifications
+      if (status === "pending_approval") {
+        await sb.from("notifications").insert([
+          { recipient_type: "admin", booking_id: inserted.id, type: "approval_needed", message: `${company.name} requested ${hours}h on ${date} beyond their monthly quota — needs approval.` },
+          { recipient_type: "member", recipient_id: memberId, booking_id: inserted.id, type: "quota_exceeded", message: `Your booking on ${date} exceeds your monthly quota and is pending admin approval.` }
+        ]);
+        toast("Booking submitted — pending approval (over monthly quota).", "");
+      } else {
+        await sb.from("notifications").insert([
+          { recipient_type: "member", recipient_id: memberId, booking_id: inserted.id, type: "confirmed", message: `Your booking for ${company.name} on ${date} (${fmtTime12(startTime)}–${fmtTime12(endTime)}) is confirmed.` }
+        ]);
+        toast("Booking confirmed.", "ok");
+      }
+
+      el.remove();
+      await loadMonthlyUsage();
+      renderCalendarView();
+      refreshNotifBadge();
+    }
+
+    /* ============================================================
+       BOOKING DETAIL / CANCEL
+       ============================================================ */
+    async function openBookingDetail(bookingId) {
+      const b = state.bookings.find(x => x.id === bookingId);
+      if (!b) return;
+      // A company login can only cancel its own company's bookings — the RLS
+      // policy + trigger enforce this server-side too, this just keeps the
+      // button from appearing on a booking someone can't actually act on.
+      const canManage = ["confirmed", "pending_approval"].includes(b.status)
+        && (state.isAdmin || b.company_id === state.actingCompanyId);
+      const el = document.createElement("div");
+      el.className = "modal-backdrop";
+      el.innerHTML = `
+    <div class="modal">
+      <div class="modal-header"><h3>Booking details</h3><button class="icon-btn" id="closeModal">✕</button></div>
+      <div class="modal-body">
+        <div class="field"><label>Company</label><div>${b.companies?.name || "—"}</div></div>
+        <div class="field"><label>Member</label><div>${b.members?.contact_name || "—"}</div></div>
+        <div class="field"><label>Room</label><div>${b.rooms?.name || "—"}</div></div>
+        <div class="field"><label>When</label><div>${fmtDisplayDate(b.booking_date)}, ${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))} (${b.hours}h)</div></div>
+        <div class="field"><label>Status</label><div><span class="badge badge-${b.status}">${b.status.replace("_", " ")}</span></div></div>
+        ${b.notes ? `<div class="field"><label>Notes</label><div>${b.notes}</div></div>` : ""}
+      </div>
+      <div class="modal-footer">
+        ${canManage && ["confirmed", "pending_approval"].includes(b.status) ? `<button class="btn btn-danger" id="cancelBooking">Cancel booking</button>` : ""}
+        <button class="btn" id="closeModal2">Close</button>
+      </div>
+    </div>`;
+      document.body.appendChild(el);
+      el.querySelector("#closeModal").onclick = () => el.remove();
+      el.querySelector("#closeModal2").onclick = () => el.remove();
+      el.addEventListener("mousedown", (e) => { if (e.target === el) el.remove(); });
+      const cancelBtn = el.querySelector("#cancelBooking");
+      if (cancelBtn) cancelBtn.onclick = async () => {
+        const { error } = await sb.from("bookings").update({ status: "cancelled" }).eq("id", b.id);
+        if (error) { toast("Couldn't cancel: " + error.message, "err"); return; }
+        await sb.from("notifications").insert([
+          { recipient_type: "member", recipient_id: b.member_id, booking_id: b.id, type: "cancelled", message: `Booking on ${b.booking_date} was cancelled.` },
+          { recipient_type: "admin", booking_id: b.id, type: "cancelled", message: `${b.companies?.name} cancelled their booking on ${b.booking_date}.` }
+        ]);
+        toast("Booking cancelled.", "ok");
+        el.remove();
+        await loadMonthlyUsage();
+        render();
+      };
+    }
+
+    /* ============================================================
+       MY BOOKINGS VIEW (history + filters)
+       ============================================================ */
+    async function renderMyBookingsView() {
+      const companyOptions = state.companies.map(c => `<option value="${c.id}" ${c.id === state.actingCompanyId ? "selected" : ""}>${c.name}</option>`).join("");
+      content.innerHTML = `
+    <div class="filter-bar">
+      <select id="fCompany"><option value="">All companies</option>${companyOptions}</select>
+      <select id="fStatus"><option value="">All statuses</option>
+        ${["confirmed", "pending_approval", "completed", "cancelled", "rejected"].map(s => `<option value="${s}">${s.replace("_", " ")}</option>`).join("")}
+      </select>
+      <input type="date" id="fFrom" />
+      <input type="date" id="fTo" />
+      <button class="btn btn-sm" id="fApply">Filter</button>
+    </div>
+    <div class="card"><div id="myBookingsTable">Loading…</div></div>
+  `;
+      document.getElementById("fApply").onclick = loadMyBookingsTable;
+      await loadMyBookingsTable();
+
+      async function loadMyBookingsTable() {
+        let q = sb.from("bookings").select("*, companies(name), members(contact_name), rooms(name)").order("booking_date", { ascending: false });
+        const companyId = document.getElementById("fCompany").value;
+        const status = document.getElementById("fStatus").value;
+        const from = document.getElementById("fFrom").value;
+        const to = document.getElementById("fTo").value;
+        if (companyId) q = q.eq("company_id", companyId);
+        if (status) q = q.eq("status", status);
+        if (from) q = q.gte("booking_date", from);
+        if (to) q = q.lte("booking_date", to);
+        const { data, error } = await q.limit(200);
+        if (error) { document.getElementById("myBookingsTable").innerHTML = `<div class="empty">${error.message}</div>`; return; }
+        if (!data || !data.length) { document.getElementById("myBookingsTable").innerHTML = `<div class="empty">No bookings found.</div>`; return; }
+        document.getElementById("myBookingsTable").innerHTML = `
+      <table><thead><tr><th>Date</th><th>Room</th><th>Time</th><th>Member</th><th>Hours</th><th>Status</th></tr></thead>
+      <tbody>${data.map(b => `
+        <tr>
+          <td>${fmtDisplayDate(b.booking_date)}</td>
+          <td>${b.rooms?.name}</td>
+          <td>${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))}</td>
+          <td>${b.members?.contact_name || "—"}</td>
+          <td>${b.hours}${b.extra_hours > 0 ? ` <span style="color:var(--warn);">(+${b.extra_hours} extra)</span>` : ""}</td>
+          <td><span class="badge badge-${b.status}">${b.status.replace("_", " ")}</span></td>
+        </tr>`).join("")}</tbody></table>`;
+      }
+    }
+
+    /* ============================================================
+       APPROVALS VIEW (admin)
+       ============================================================ */
+    async function renderApprovalsView() {
+      if (!state.isAdmin) { content.innerHTML = `<div class="empty">Admins only.</div>`; return; }
+      content.innerHTML = `<div class="card"><h3>Pending approval</h3><div id="approvalsTable">Loading…</div></div>`;
+      const { data, error } = await sb.from("bookings").select("*, companies(name,monthly_hours_allocation), members(contact_name), rooms(name)")
+        .eq("status", "pending_approval").order("booking_date");
+      if (error) { document.getElementById("approvalsTable").innerHTML = `<div class="empty">${error.message}</div>`; return; }
+      if (!data || !data.length) { document.getElementById("approvalsTable").innerHTML = `<div class="empty">No bookings waiting on approval 🎉</div>`; return; }
+      document.getElementById("approvalsTable").innerHTML = `
+    <table><thead><tr><th>Company</th><th>Member</th><th>Room</th><th>Date</th><th>Time</th><th>Extra hrs</th><th></th></tr></thead>
+    <tbody>${data.map(b => `
+      <tr>
+        <td>${b.companies?.name}</td>
+        <td>${b.members?.contact_name}</td>
+        <td>${b.rooms?.name}</td>
+        <td>${fmtDisplayDate(b.booking_date)}</td>
+        <td>${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))}</td>
+        <td>${b.extra_hours}h</td>
+        <td style="display:flex;gap:6px;">
+          <button class="btn btn-sm btn-primary" data-approve="${b.id}">Approve</button>
+          <button class="btn btn-sm btn-danger" data-reject="${b.id}">Reject</button>
+        </td>
+      </tr>`).join("")}</tbody></table>`;
+
+      document.querySelectorAll("[data-approve]").forEach(btn => {
+        btn.onclick = () => resolveApproval(btn.dataset.approve, "confirmed");
+      });
+      document.querySelectorAll("[data-reject]").forEach(btn => {
+        btn.onclick = () => resolveApproval(btn.dataset.reject, "rejected");
+      });
+    }
+
+    async function resolveApproval(bookingId, newStatus) {
+      const { data: b, error } = await sb.from("bookings").update({
+        status: newStatus, reviewed_by: state.user.id, reviewed_at: new Date().toISOString(),
+        extra_hours: newStatus === "rejected" ? 0 : undefined
+      }).eq("id", bookingId).select().single();
+      if (error) { toast("Failed: " + error.message, "err"); return; }
+      await sb.from("notifications").insert({
+        recipient_type: "member", recipient_id: b.member_id, booking_id: b.id,
+        type: newStatus, message: newStatus === "confirmed"
+          ? `Your over-quota booking on ${b.booking_date} was approved and is now confirmed.`
+          : `Your over-quota booking on ${b.booking_date} was rejected by admin.`
+      });
+      toast(newStatus === "confirmed" ? "Booking approved." : "Booking rejected.", "ok");
+      await loadMonthlyUsage();
+      renderApprovalsView();
+      refreshNotifBadge();
+    }
+
+    /* ============================================================
+       MEMBERS VIEW (admin — company + primary contact management)
+       ============================================================ */
+    async function renderMembersView() {
+      if (!state.isAdmin) { content.innerHTML = `<div class="empty">Admins only.</div>`; return; }
+      const { data: companies } = await sb.from("companies").select("*, members(id,contact_name,email,phone,is_active)").order("name");
+      const ym = currentYearMonth();
+      const [{ data: usage }, { data: loginProfiles }] = await Promise.all([
+        sb.from("monthly_usage").select("*").eq("year_month", ym),
+        sb.from("profiles").select("id,company_id").eq("role", "member")
+      ]);
+      const usageMap = {}; (usage || []).forEach(u => usageMap[u.company_id] = u);
+      const loginMap = {}; (loginProfiles || []).forEach(p => { if (p.company_id) loginMap[p.company_id] = p; });
+      (companies || []).forEach(c => c.loginProfile = loginMap[c.id] || null);
+
+      content.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <button class="btn btn-primary btn-sm" id="addMemberBtn">+ Add member</button>
+    </div>
+    <div class="card">
+      <table><thead><tr>
+        <th>Company</th><th>Contact</th><th>Category</th><th>Monthly quota</th><th>Used</th><th>Remaining</th><th>Login</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>${(companies || []).map(c => {
+        const primary = (c.members || [])[0];
+        const used = usageMap[c.id]?.hours_used || 0;
+        const remaining = Math.max(0, c.monthly_hours_allocation - used);
+        return `<tr>
+          <td><strong>${c.name}</strong></td>
+          <td>${primary ? `${primary.contact_name}<br><span style="color:var(--text-faint);font-size:11.5px;">${primary.email || ""} ${primary.phone || ""}</span>` : "—"}</td>
+          <td>${c.category === "virtual_office" ? "Virtual Office" : "Member"}</td>
+          <td>${c.monthly_hours_allocation}h</td>
+          <td>${used}h</td>
+          <td>${remaining}h</td>
+          <td>${c.loginProfile ? `<span class="badge badge-confirmed">linked</span>` : `<span class="badge badge-pending_approval">no login</span>`}</td>
+          <td>${c.is_active ? `<span class="badge badge-confirmed">active</span>` : `<span class="badge badge-cancelled">inactive</span>`}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-sm" data-edit="${c.id}">Edit</button>
+            <button class="btn btn-sm btn-danger" data-toggle="${c.id}" data-active="${c.is_active}">${c.is_active ? "Deactivate" : "Activate"}</button>
+          </td>
+        </tr>`;
+      }).join("")}</tbody></table>
+    </div>
+  `;
+      document.getElementById("addMemberBtn").onclick = () => openMemberModal(null);
+      document.querySelectorAll("[data-edit]").forEach(btn => {
+        btn.onclick = () => {
+          const c = companies.find(x => x.id === btn.dataset.edit);
+          openMemberModal(c);
+        };
+      });
+      document.querySelectorAll("[data-toggle]").forEach(btn => {
+        btn.onclick = async () => {
+          const isActive = btn.dataset.active === "true";
+          await sb.from("companies").update({ is_active: !isActive }).eq("id", btn.dataset.toggle);
+          toast(isActive ? "Company deactivated." : "Company activated.", "ok");
+          renderMembersView();
+        };
+      });
+    }
+
+    function openMemberModal(company) {
+      const primary = company?.members?.[0];
+      const el = document.createElement("div");
+      el.className = "modal-backdrop";
+      el.innerHTML = `
+    <div class="modal">
+      <div class="modal-header"><h3>${company ? "Edit member" : "Add member"}</h3><button class="icon-btn" id="closeModal">✕</button></div>
+      <div class="modal-body">
+        <div id="modalNotice"></div>
+        <div class="field"><label>Company name</label><input id="fCompanyName" value="${company?.name || ""}" /></div>
+        <div class="field"><label>Contact person</label><input id="fContactName" value="${primary?.contact_name || ""}" /></div>
+        <div class="field-row">
+          <div class="field"><label>Email (optional)</label><input id="fEmail" type="email" value="${primary?.email || ""}" /></div>
+          <div class="field"><label>Phone (optional)</label><input id="fPhone" value="${primary?.phone || ""}" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Category</label>
+            <select id="fCategory">
+              <option value="member" ${company?.category === "member" ? "selected" : ""}>Member</option>
+              <option value="virtual_office" ${company?.category === "virtual_office" ? "selected" : ""}>Virtual Office</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Monthly allocation</label>
+            <select id="fAllocation">
+              <option value="4" ${company?.monthly_hours_allocation == 4 ? "selected" : ""}>4 hours</option>
+              <option value="10" ${!company || company?.monthly_hours_allocation == 10 ? "selected" : ""}>10 hours</option>
+              <option value="20" ${company?.monthly_hours_allocation == 20 ? "selected" : ""}>20 hours</option>
+            </select>
+          </div>
+        </div>
+        <p style="font-size:11.5px;color:var(--text-faint);">Virtual Office defaults to 4h/month; pick a different value here to override.</p>
+        <div class="field">
+          <label>Login user UUID (optional)</label>
+          <input id="fLoginUuid" placeholder="from Supabase → Authentication → Users" value="${company?.loginProfile?.id || ""}" />
+        </div>
+        <p style="font-size:11.5px;color:var(--text-faint);">
+          Create the company's sign-in account once in Supabase (Authentication → Users → Add user),
+          then paste its UUID here to link it to this company. Leave blank to manage the company
+          without a login for now — you can add it later.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="cancelModal">Cancel</button>
+        <button class="btn btn-primary" id="saveMember">Save</button>
+      </div>
+    </div>`;
+      document.body.appendChild(el);
+      el.querySelector("#closeModal").onclick = () => el.remove();
+      el.querySelector("#cancelModal").onclick = () => el.remove();
+      el.querySelector("#fCategory").onchange = (e) => {
+        if (e.target.value === "virtual_office") el.querySelector("#fAllocation").value = "4";
+      };
+      el.querySelector("#saveMember").onclick = async () => {
+        const notice = el.querySelector("#modalNotice");
+        const companyName = el.querySelector("#fCompanyName").value.trim();
+        const contactName = el.querySelector("#fContactName").value.trim();
+        const email = el.querySelector("#fEmail").value.trim();
+        const phone = el.querySelector("#fPhone").value.trim();
+        const category = el.querySelector("#fCategory").value;
+        const allocation = Number(el.querySelector("#fAllocation").value);
+        const loginUuid = el.querySelector("#fLoginUuid").value.trim();
+        if (!companyName || !contactName) { notice.innerHTML = `<div class="notice notice-danger">Company name and contact person are required.</div>`; return; }
+
+        let companyId;
+        if (company) {
+          const { error: e1 } = await sb.from("companies").update({ name: companyName, category, monthly_hours_allocation: allocation }).eq("id", company.id);
+          if (e1) { notice.innerHTML = `<div class="notice notice-danger">${e1.message}</div>`; return; }
+          companyId = company.id;
+          if (primary) {
+            await sb.from("members").update({ contact_name: contactName, email: email || null, phone: phone || null }).eq("id", primary.id);
+          } else {
+            await sb.from("members").insert({ company_id: company.id, contact_name: contactName, email: email || null, phone: phone || null });
+          }
+        } else {
+          const { data: newCo, error: e1 } = await sb.from("companies").insert({ name: companyName, category, monthly_hours_allocation: allocation }).select().single();
+          if (e1) { notice.innerHTML = `<div class="notice notice-danger">${e1.message}</div>`; return; }
+          companyId = newCo.id;
+          await sb.from("members").insert({ company_id: newCo.id, contact_name: contactName, email: email || null, phone: phone || null });
+        }
+
+        if (loginUuid) {
+          const { error: e2 } = await sb.from("profiles").upsert({
+            id: loginUuid, role: "member", company_id: companyId, full_name: companyName
+          });
+          if (e2) { toast("Company saved, but linking the login failed: " + e2.message, "err"); el.remove(); renderMembersView(); return; }
+        }
+
+        toast("Saved.", "ok");
+        el.remove();
+        renderMembersView();
+      };
+    }
+
+    /* ============================================================
+       DASHBOARD VIEW (admin analytics)
+       ============================================================ */
+    let charts = {};
+    function destroyCharts() { Object.values(charts).forEach(c => c?.destroy()); charts = {}; }
+
+    async function renderDashboardView() {
+      if (!state.isAdmin) { content.innerHTML = `<div class="empty">Admins only.</div>`; return; }
+      destroyCharts();
+
+      const monthStart = fmtDate(new Date()).slice(0, 8) + "01";
+      const today = fmtDate(new Date());
+
+      const [{ data: monthBookings }, { data: usageRows }, { data: companies }] = await Promise.all([
+        sb.from("bookings").select("*, companies(name), rooms(name)").gte("booking_date", monthStart).lte("booking_date", today).neq("status", "cancelled"),
+        sb.from("monthly_usage").select("*, companies(name,monthly_hours_allocation)").eq("year_month", currentYearMonth()),
+        sb.from("companies").select("*")
+      ]);
+
+      const totalHours = (monthBookings || []).filter(b => ["confirmed", "completed"].includes(b.status)).reduce((s, b) => s + Number(b.hours), 0);
+      const totalBookings = (monthBookings || []).length;
+      const pendingCount = (monthBookings || []).filter(b => b.status === "pending_approval").length;
+      const rejectedCount = (monthBookings || []).filter(b => b.status === "rejected").length;
+
+      const roomTotals = {};
+      state.rooms.forEach(r => roomTotals[r.name] = 0);
+      (monthBookings || []).filter(b => ["confirmed", "completed"].includes(b.status)).forEach(b => {
+        roomTotals[b.rooms?.name] = (roomTotals[b.rooms?.name] || 0) + Number(b.hours);
+      });
+
+      // popular time slots heatmap: sum hours by start-slot across the month
+      const slotTotals = {}; SLOTS.forEach(s => slotTotals[s] = 0);
+      (monthBookings || []).filter(b => ["confirmed", "completed"].includes(b.status)).forEach(b => {
+        let m = timeToMinutes(b.start_time.slice(0, 5));
+        const endM = timeToMinutes(b.end_time.slice(0, 5));
+        while (m < endM) { const key = minutesToTime(m); if (key in slotTotals) slotTotals[key] += 0.5; m += 30; }
+      });
+      const maxSlot = Math.max(1, ...Object.values(slotTotals));
+
+      const sortedCompanies = (usageRows || []).slice().sort((a, b) => Number(b.hours_used) - Number(a.hours_used));
+      const mostActive = sortedCompanies.slice(0, 3);
+      const leastActive = sortedCompanies.slice(-3).reverse();
+
+      const businessDaysSoFar = Math.max(1, businessDaysBetween(monthStart, today));
+      const capacityPerRoomPerDay = 8.5; // 9:30-18:00
+      const utilization = {};
+      state.rooms.forEach(r => {
+        const cap = capacityPerRoomPerDay * businessDaysSoFar;
+        utilization[r.name] = Math.min(100, Math.round(((roomTotals[r.name] || 0) / cap) * 100));
+      });
+
+      content.innerHTML = `
+    <div class="grid grid-4">
+      <div class="card stat"><div class="num">${totalHours}h</div><div class="lbl">Hours booked this month</div></div>
+      <div class="card stat"><div class="num">${totalBookings}</div><div class="lbl">Total bookings</div></div>
+      <div class="card stat"><div class="num">${pendingCount}</div><div class="lbl">Pending approvals</div></div>
+      <div class="card stat"><div class="num">${rejectedCount}</div><div class="lbl">Rejected this month</div></div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:14px;">
+      <div class="card">
+        <h3>Room occupancy (utilization %)</h3>
+        <canvas id="occChart" height="180"></canvas>
+      </div>
+      <div class="card">
+        <h3>Hours booked per room this month</h3>
+        <canvas id="roomChart" height="180"></canvas>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h3>Popular time slots (heatmap, this month)</h3>
+      <div id="heatmap"></div>
+    </div>
+
+    <div class="grid grid-2" style="margin-top:14px;">
+      <div class="card">
+        <h3>Most active companies</h3>
+        ${renderCompanyList(mostActive)}
+      </div>
+      <div class="card">
+        <h3>Least active companies</h3>
+        ${renderCompanyList(leastActive)}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h3>Company usage — this month</h3>
+      <table><thead><tr><th>Company</th><th>Used</th><th>Quota</th><th>Extra</th><th>Remaining</th></tr></thead>
+      <tbody>${(usageRows || []).map(u => `
+        <tr>
+          <td>${u.companies?.name || "—"}</td>
+          <td>${u.hours_used}h</td>
+          <td>${u.companies?.monthly_hours_allocation}h</td>
+          <td>${u.extra_hours_used > 0 ? `<span class="badge badge-pending_approval">${u.extra_hours_used}h</span>` : "—"}</td>
+          <td>${Math.max(0, (u.companies?.monthly_hours_allocation || 0) - u.hours_used)}h</td>
+        </tr>`).join("") || `<tr><td colspan="5" class="empty">No usage yet this month.</td></tr>`}
+      </tbody></table>
+    </div>
+  `;
+
+      charts.occ = new Chart(document.getElementById("occChart"), {
+        type: "bar",
+        data: { labels: Object.keys(utilization), datasets: [{ label: "Utilization %", data: Object.values(utilization), backgroundColor: ["#2563eb", "#7c3aed"] }] },
+        options: { scales: { y: { beginAtZero: true, max: 100 } }, plugins: { legend: { display: false } } }
+      });
+      charts.room = new Chart(document.getElementById("roomChart"), {
+        type: "bar",
+        data: { labels: Object.keys(roomTotals), datasets: [{ label: "Hours", data: Object.values(roomTotals), backgroundColor: ["#2563eb", "#7c3aed"] }] },
+        options: { scales: { y: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+      });
+
+      document.getElementById("heatmap").innerHTML = SLOTS.map(s => {
+        const val = slotTotals[s]; const intensity = val / maxSlot;
+        const bg = `rgba(37,99,235,${0.08 + intensity * 0.75})`;
+        return `<div class="heatmap-row"><div class="heatmap-lbl">${fmtTime12(s)}</div><div class="heatmap-cell" style="background:${bg}" title="${val}h booked"></div></div>`;
+      }).join("");
+    }
+
+    function renderCompanyList(rows) {
+      if (!rows.length) return `<div class="empty">No data yet.</div>`;
+      return `<table><tbody>${rows.map(u => `<tr><td>${u.companies?.name || "—"}</td><td style="text-align:right;">${u.hours_used}h</td></tr>`).join("")}</tbody></table>`;
+    }
+
+    function businessDaysBetween(startStr, endStr) {
+      let count = 0; let d = new Date(startStr + "T00:00:00"); const end = new Date(endStr + "T00:00:00");
+      while (d <= end) { const day = d.getDay(); if (day !== 0 && day !== 6) count++; d.setDate(d.getDate() + 1); }
+      return count;
+    }
+
+    /* ============================================================
+       Notifications panel
+       ============================================================ */
+    document.getElementById("notifBtn").addEventListener("click", async () => {
+      await loadNotifications();
+      const el = document.createElement("div");
+      el.className = "modal-backdrop";
+      el.innerHTML = `
+    <div class="modal">
+      <div class="modal-header"><h3>Notifications</h3><button class="icon-btn" id="closeModal">✕</button></div>
+      <div class="modal-body" style="max-height:400px;overflow:auto;">
+        ${state.notifications.length ? state.notifications.map(n => `
+          <div class="notice ${n.is_read ? '' : 'notice-ok'}" style="margin-bottom:8px;">
+            <span>${n.type === 'approval_needed' ? '⏳' : n.type === 'rejected' ? '❌' : n.type === 'cancelled' ? '🚫' : '✅'}</span>
+            <span>${n.message}<br><span style="color:var(--text-faint);font-size:11px;">${new Date(n.created_at).toLocaleString()}</span></span>
+          </div>`).join("") : `<div class="empty">No notifications yet.</div>`}
+      </div>
+      <div class="modal-footer"><button class="btn" id="closeModal2">Close</button></div>
+    </div>`;
+      document.body.appendChild(el);
+      el.querySelector("#closeModal").onclick = () => el.remove();
+      el.querySelector("#closeModal2").onclick = () => el.remove();
+      el.addEventListener("mousedown", (e) => { if (e.target === el) el.remove(); });
+      const ids = state.notifications.filter(n => !n.is_read).map(n => n.id);
+      if (ids.length) await sb.from("notifications").update({ is_read: true }).in("id", ids);
+      document.getElementById("notifDot").style.display = "none";
+    });
+
+    /* ============================================================
+       Mobile nav toggle
+       ============================================================ */
+    document.getElementById("mobileMenuBtn")?.addEventListener("click", () => {
+      document.getElementById("sidebar").classList.toggle("open");
+    });
+
+    /* ============================================================
+       Boot
+       ============================================================ */
+    initAuth();
+  </script>
+</body>
+
+</html>
