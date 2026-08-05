@@ -47,14 +47,19 @@ export function CalendarView() {
       : fmtDisplayDate(calAnchor);
 
   const loadBookings = useCallback(async () => {
-    const { data, error } = await sb.from('bookings')
+    let q = sb.from('bookings')
       .select('*, companies(name,category), members(contact_name), rooms(name)')
       .gte('booking_date', rangeStart)
       .lte('booking_date', rangeEnd)
       .neq('status', 'cancelled')
       .order('start_time');
+    // Only show own company's bookings unless admin
+    if (!isAdmin && actingCompanyId) {
+      q = q.eq('company_id', actingCompanyId);
+    }
+    const { data, error } = await q;
     if (!error) setBookings(data || []);
-  }, [calMode, calAnchor]);
+  }, [calMode, calAnchor, isAdmin, actingCompanyId]);
 
   useEffect(() => { loadBookings(); }, [loadBookings]);
 
@@ -508,7 +513,13 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
 /* ── Booking detail / cancel modal ─────────────────────── */
 function BookingDetailModal({ booking: b, isAdmin, actingCompanyId, onClose, onCancelled }) {
   const today = fmtDate(new Date());
-  const isPast = b.booking_date < today;
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = timeToMinutes(b.start_time.slice(0,5));
+  
+  // Booking is past if: (1) date is before today OR (2) date is today AND start time has passed
+  const isPast = b.booking_date < today || (b.booking_date === today && startMinutes <= nowMinutes);
+  
   const canManage = ['confirmed', 'pending_approval'].includes(b.status)
     && (isAdmin || b.company_id === actingCompanyId);
   const canCancel = canManage && !isPast;

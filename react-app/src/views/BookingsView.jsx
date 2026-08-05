@@ -19,7 +19,9 @@ export function BookingsView() {
     let q = sb.from('bookings')
       .select('*, companies(name), members(contact_name), rooms(name)')
       .order('booking_date', { ascending: false });
-    if (companyFilter) q = q.eq('company_id', companyFilter);
+    // For non-admins, always filter to their company if no company is explicitly selected
+    const filterCompanyId = companyFilter || (!isAdmin && actingCompanyId ? actingCompanyId : '');
+    if (filterCompanyId) q = q.eq('company_id', filterCompanyId);
     if (statusFilter)  q = q.eq('status', statusFilter);
     if (fromDate)      q = q.gte('booking_date', fromDate);
     if (toDate)        q = q.lte('booking_date', toDate);
@@ -27,7 +29,7 @@ export function BookingsView() {
     setLoading(false);
     if (err) { setError(err.message); return; }
     setBookings(data || []);
-  }, [companyFilter, statusFilter, fromDate, toDate]);
+  }, [companyFilter, statusFilter, fromDate, toDate, isAdmin, actingCompanyId]);
 
   // Auto-load on first render
   useEffect(() => { load(); }, []);

@@ -33,14 +33,17 @@ export default function App() {
     sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         await onSignedIn(session);
-        await loadNotifications();
+        // Load notifications in parallel (no need to wait for sign-in to complete)
+        loadNotifications();
       }
       if (event === 'SIGNED_OUT') signOut();
     });
 
     // Restore existing session on mount
     sb.auth.getSession().then(({ data: { session } }) => {
-      if (session) onSignedIn(session).then(() => loadNotifications());
+      if (session) {
+        onSignedIn(session).then(() => loadNotifications());
+      }
     });
   }, []);
 

@@ -79,7 +79,11 @@ export const useStore = create((set, get) => ({
     const isAdmin = profile.role === 'admin';
     const actingCompanyId = profile.role === 'member' ? profile.company_id : null;
     set({ user, profile, isAdmin, actingCompanyId });
-    await get().loadStaticData();
+    // Load static data and monthly usage in parallel for faster sign-in
+    await Promise.all([
+      get().loadStaticData(),
+      get().loadMonthlyUsage()
+    ]);
     return { error: null };
   },
 
@@ -92,7 +96,6 @@ export const useStore = create((set, get) => ({
     const ROOM_COLORS = {};
     (rooms || []).forEach((r, i) => { ROOM_COLORS[r.id] = i % 2 === 0 ? 'sb1' : 'sb2'; });
     set({ rooms: rooms || [], companies: companies || [], members: members || [], ROOM_COLORS });
-    await get().loadMonthlyUsage();
   },
 
   loadMonthlyUsage: async () => {
