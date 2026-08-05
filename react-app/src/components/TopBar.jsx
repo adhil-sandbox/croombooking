@@ -11,14 +11,24 @@ const VIEW_TITLES = {
 };
 
 export function TopBar() {
-  const { view, theme, toggleTheme, unreadCount } = useStore();
+  const { view, theme, toggleTheme, unreadCount, isAdmin, actingCompany, actingMemberId, setActingMemberId, members, signOut } = useStore();
   const [showNotifs, setShowNotifs] = useState(false);
   const unread = unreadCount();
+  const company = actingCompany();
+  const companyMembers = company ? members.filter(m => m.is_active && m.company_id === company.id) : [];
 
   return (
     <>
       <div className="topbar">
-        <h1>{VIEW_TITLES[view] || ''}</h1>
+        <div className="topbar-title-group">
+          <h1>{VIEW_TITLES[view] || ''}</h1>
+          {!isAdmin && company && (
+            <div className="topbar-company-info">
+              <span className="company-label">Booking as</span>
+              <span className="company-name">{company.name}</span>
+            </div>
+          )}
+        </div>
         <div className="topbar-actions">
           <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
             {theme === 'dark' ? '☀️' : '🌙'}
@@ -40,6 +50,24 @@ export function TopBar() {
           </button>
         </div>
       </div>
+
+      {!isAdmin && company && (
+        <div className="mobile-acting-box">
+          <div className="acting-company-name">{company.name}</div>
+          <select
+            value={actingMemberId || ''}
+            onChange={e => setActingMemberId(e.target.value || null)}
+          >
+            <option value="">Select contact…</option>
+            {companyMembers.map(m => (
+              <option key={m.id} value={m.id}>{m.contact_name}</option>
+            ))}
+          </select>
+          <button className="btn btn-ghost btn-sm mobile-signout" onClick={signOut}>
+            Sign out
+          </button>
+        </div>
+      )}
 
       {showNotifs && <NotificationsPanel onClose={() => setShowNotifs(false)} />}
     </>

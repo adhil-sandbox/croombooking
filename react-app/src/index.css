@@ -159,6 +159,12 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+@media (min-width: 769px) {
+  .bottom-tab-bar {
+    display: none !important;
+  }
+}
+
 /* ============================================================
    Top bar
    ============================================================ */
@@ -181,10 +187,55 @@ a { color: inherit; text-decoration: none; }
   margin: 0;
 }
 
+.topbar-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar-company-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.company-label {
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.company-name {
+  font-weight: 600;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.mobile-acting-box {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.mobile-signout {
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .mobile-acting-box {
+    display: flex;
+  }
 }
 
 /* ============================================================

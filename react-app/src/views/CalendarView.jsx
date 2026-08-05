@@ -72,15 +72,22 @@ export function CalendarView() {
     refreshQuota();
   }, [actingCompanyId, calAnchor]);
 
-  function prev() {
-    if (calMode === 'month') setCalAnchor(addMonths(calAnchor, -1));
-    else if (calMode === 'week') setCalAnchor(addDays(calAnchor, -7));
-    else setCalAnchor(addDays(calAnchor, -1));
+  function normalizeAnchor(dateStr) {
+    return fmtDate(new Date(dateStr + 'T00:00:00'));
   }
+
+  function prev() {
+    const anchor = normalizeAnchor(calAnchor);
+    if (calMode === 'month') setCalAnchor(addMonths(anchor, -1));
+    else if (calMode === 'week') setCalAnchor(addDays(anchor, -7));
+    else setCalAnchor(addDays(anchor, -1));
+  }
+
   function next() {
-    if (calMode === 'month') setCalAnchor(addMonths(calAnchor, 1));
-    else if (calMode === 'week') setCalAnchor(addDays(calAnchor, 7));
-    else setCalAnchor(addDays(calAnchor, 1));
+    const anchor = normalizeAnchor(calAnchor);
+    if (calMode === 'month') setCalAnchor(addMonths(anchor, 1));
+    else if (calMode === 'week') setCalAnchor(addDays(anchor, 7));
+    else setCalAnchor(addDays(anchor, 1));
   }
 
   const columns = [];
@@ -367,6 +374,13 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
     const hours = (endMin - startMin) / 60;
     if (hours > MAX_DAILY_HOURS) { setNotice(`Max ${MAX_DAILY_HOURS}h per booking.`); setLoading(false); return; }
 
+    const today = fmtDate(new Date());
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    if (date === today && startMin < nowMinutes) {
+      setNotice('Start time must be in the future for today.'); setLoading(false); return;
+    }
+
     const { data: dayBookings } = await sb.from('bookings').select('hours,status')
       .eq('member_id', memberId).eq('booking_date', date).in('status', ['confirmed', 'pending_approval', 'completed']);
     const usedToday = (dayBookings || []).reduce((s, b) => s + Number(b.hours), 0);
@@ -493,10 +507,17 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
 
 /* ── Booking detail / cancel modal ─────────────────────── */
 function BookingDetailModal({ booking: b, isAdmin, actingCompanyId, onClose, onCancelled }) {
+  const today = fmtDate(new Date());
+  const isPast = b.booking_date < today;
   const canManage = ['confirmed', 'pending_approval'].includes(b.status)
     && (isAdmin || b.company_id === actingCompanyId);
+  const canCancel = canManage && !isPast;
 
   async function handleCancel() {
+    if (!canCancel) {
+      toast('Past bookings cannot be cancelled.', 'err');
+      return;
+    }
     const { error } = await sb.from('bookings').update({ status: 'cancelled' }).eq('id', b.id);
     if (error) { toast("Couldn't cancel: " + error.message, 'err'); return; }
     await sb.from('notifications').insert([
@@ -509,7 +530,7 @@ function BookingDetailModal({ booking: b, isAdmin, actingCompanyId, onClose, onC
 
   const footer = (
     <>
-      {canManage && (
+      {canCancel && (
         <button className="btn btn-danger" onClick={handleCancel}>Cancel booking</button>
       )}
       <button className="btn" onClick={onClose}>Close</button>

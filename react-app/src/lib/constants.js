@@ -24,13 +24,21 @@ export function buildSlots() {
 
 export const SLOTS = buildSlots();
 
+function parseLocalDate(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
 export function fmtDate(d) {
   if (typeof d === 'string') return d;
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function fmtDisplayDate(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = parseLocalDate(dateStr);
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
@@ -46,13 +54,13 @@ export function currentYearMonth(dateStr) {
 }
 
 export function addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = parseLocalDate(dateStr);
   d.setDate(d.getDate() + n);
   return fmtDate(d);
 }
 
 export function startOfWeek(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = parseLocalDate(dateStr);
   const day = d.getDay();
   const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
@@ -60,18 +68,18 @@ export function startOfWeek(dateStr) {
 }
 
 export function addMonths(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = parseLocalDate(dateStr);
   d.setMonth(d.getMonth() + n);
   return fmtDate(d);
 }
 
 export function fmtMonthYear(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = parseLocalDate(dateStr);
   return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
 export function getMonthGridRange(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = parseLocalDate(dateStr);
   const year = d.getFullYear();
   const month = d.getMonth();
   const firstDay = new Date(year, month, 1);
@@ -89,8 +97,8 @@ export function getMonthGridRange(dateStr) {
 
 export function businessDaysBetween(startStr, endStr) {
   let count = 0;
-  let d = new Date(startStr + 'T00:00:00');
-  const end = new Date(endStr + 'T00:00:00');
+  let d = parseLocalDate(startStr);
+  const end = parseLocalDate(endStr);
   while (d <= end) {
     const day = d.getDay();
     if (day !== 0 && day !== 6) count++;
