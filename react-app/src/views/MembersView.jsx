@@ -9,18 +9,21 @@ import { toast } from '../components/Toast';
 export function MembersView() {
   const { isAdmin } = useStore();
   const [companies, setCompanies] = useState([]);
+  const [pendingProfiles, setPendingProfiles] = useState([]);
   const [loading, setLoading]    = useState(true);
   const [editCompany, setEditCompany] = useState(undefined); // null=add, obj=edit
+  const [assignMap, setAssignMap] = useState({});
 
   if (!isAdmin) return <div className="empty">Admins only.</div>;
 
   async function load() {
     setLoading(true);
     const ym = currentYearMonth();
-    const [{ data: cos }, { data: usage }, { data: profiles }] = await Promise.all([
+    const [{ data: cos }, { data: usage }, { data: profiles }, { data: pends }] = await Promise.all([
       sb.from('companies').select('*, members(id,contact_name,email,phone,is_active)').order('name'),
       sb.from('monthly_usage').select('*').eq('year_month', ym),
       sb.from('profiles').select('id,company_id').eq('role', 'member'),
+      sb.from('profiles').select('*').or('role.eq.pending,and(role.eq.member,company_id.is.null)').neq('role', 'admin'),
     ]);
     const usageMap = {}; (usage || []).forEach(u => usageMap[u.company_id] = u);
     const loginMap = {}; (profiles || []).forEach(p => { if (p.company_id) loginMap[p.company_id] = p; });
@@ -30,6 +33,7 @@ export function MembersView() {
       loginProfile: loginMap[c.id] || null,
     }));
     setCompanies(enriched);
+    setPendingProfiles(pends || []);
     setLoading(false);
   }
 
@@ -38,6 +42,27 @@ export function MembersView() {
   async function toggleActive(company) {
     await sb.from('companies').update({ is_active: !company.is_active }).eq('id', company.id);
     toast(company.is_active ? 'Company deactivated.' : 'Company activated.', 'ok');
+    load();
+  }
+
+  async function handleApproveUser(profileId) {
+    const companyId = assignMap[profileId] || companies[0]?.id;
+    if (!companyId) {
+      toast('Please select a company to assign.', 'err');
+      return;
+    }
+    const targetCompany = companies.find(c => c.id === companyId);
+    const { error } = await sb.from('profiles').update({
+      role: 'member',
+      company_id: companyId
+    }).eq('id', profileId);
+
+    if (error) {
+      toast('Failed to approve: ' + error.message, 'err');
+      return;
+    }
+
+    toast(`Approved user for ${targetCompany?.name || 'company'}.`, 'ok');
     load();
   }
 
@@ -52,7 +77,44 @@ export function MembersView() {
       {loading && <div className="empty">Loading…</div>}
 
       {!loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Pending Registrations */}
+          {pendingProfiles.length > 0 && (
+            <div className="card" style={{ border: '1px solid var(--warn)', background: 'var(--warn-soft)' }}>
+              <h3 style={{ margin: '0 0 8px', color: 'var(--warn)', fontSize: 14 }}>
+                ⏳ Pending Google Registrations ({pendingProfiles.length})
+              </h3>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
+                The following users signed in with Google and are waiting for company assignment.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {pendingProfiles.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, background: 'var(--bg)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    <div>
+                      <strong style={{ fontSize: 13 }}>{p.full_name || 'New Google User'}</strong>
+                      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>ID: {p.id}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <select
+                        style={{ width: 'auto', padding: '4px 8px', fontSize: 12 }}
+                        value={assignMap[p.id] || companies[0]?.id || ''}
+                        onChange={e => setAssignMap({ ...assignMap, [p.id]: e.target.value })}
+                      >
+                        {companies.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <button className="btn btn-sm btn-primary" onClick={() => handleApproveUser(p.id)}>
+                        Approve & Link
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Companies List */}
           {companies.map(c => {
             const primary = (c.members || [])[0];
             const used = c.usage?.hours_used || 0;

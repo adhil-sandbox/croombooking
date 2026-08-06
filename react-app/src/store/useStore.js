@@ -7,6 +7,7 @@ export const useStore = create((set, get) => ({
   user: null,
   profile: null,
   isAdmin: false,
+  isPending: false,
   actingCompanyId: null,
   actingMemberId: localStorage.getItem('sb_acting_member_id') || null,
 
@@ -60,30 +61,51 @@ export const useStore = create((set, get) => ({
     return error;
   },
 
+  signInWithGoogle: async () => {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    return error;
+  },
+
   signOut: async () => {
     await sb.auth.signOut();
     set({
-      user: null, profile: null, isAdmin: false,
+      user: null, profile: null, isAdmin: false, isPending: false,
       actingCompanyId: null, actingMemberId: null,
     });
   },
 
   onSignedIn: async (session) => {
     const user = session.user;
-    const { data: profile, error } = await sb
-      .from('profiles').select('*').eq('id', user.id).single();
-    if (error || !profile) {
-      await sb.auth.signOut();
-      return { error: 'Account not set up. Ask an admin to link it.' };
+    let { data: profile } = await sb
+      .from('profiles').select('*').eq('id', user.id).maybeSingle();
+
+    if (!profile) {
+      const fullName = user.user_metadata?.full_name || user.email;
+      const { data: newProfile } = await sb.from('profiles').insert({
+        id: user.id,
+        role: 'pending',
+        full_name: fullName,
+      }).select().single();
+      profile = newProfile;
     }
-    const isAdmin = profile.role === 'admin';
-    const actingCompanyId = profile.role === 'member' ? profile.company_id : null;
-    set({ user, profile, isAdmin, actingCompanyId });
-    // Load static data and monthly usage in parallel for faster sign-in
-    await Promise.all([
-      get().loadStaticData(),
-      get().loadMonthlyUsage()
-    ]);
+
+    const isAdmin = profile?.role === 'admin';
+    const isPending = profile?.role === 'pending' || (!isAdmin && !profile?.company_id);
+    const actingCompanyId = profile?.company_id || null;
+
+    set({ user, profile, isAdmin, isPending, actingCompanyId });
+
+    if (!isPending) {
+      await Promise.all([
+        get().loadStaticData(),
+        get().loadMonthlyUsage()
+      ]);
+    }
     return { error: null };
   },
 

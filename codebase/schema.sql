@@ -68,26 +68,24 @@ create table if not exists members (
   created_at timestamptz not null default now()
 );
 
--- ---------- Profiles (admin accounts only) ----------
--- Every row here is an admin. Non-admins never sign in, so they never get a
--- profiles row. `role` is kept (rather than a bare boolean) so a future
--- non-admin staff role — e.g. reception — can be added without a schema change.
+-- ---------- Profiles ----------
+-- Supports 'admin', 'member', and 'pending' roles.
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  role user_role not null default 'admin',
+  role text not null default 'pending',
   full_name text,
   -- set only for role='member' logins: which company this login acts as.
-  -- null for admins. A company login can only ever represent one company.
+  -- null for admins and pending users.
   company_id uuid references companies(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
--- Keep company_id/role consistent: admins never have a company_id, and a
--- 'member' login must have one.
+-- Keep company_id/role consistent
 do $$ begin
   alter table profiles add constraint chk_profile_role_company check (
     (role = 'admin' and company_id is null) or
-    (role = 'member' and company_id is not null)
+    (role = 'member' and company_id is not null) or
+    (role = 'pending')
   );
 exception when duplicate_object then null; end $$;
 
@@ -274,7 +272,7 @@ alter table audit_log enable row level security;
 create or replace function is_admin()
 returns boolean as $$
   select coalesce((
-    select true from profiles where id = auth.uid() and role = 'admin'
+    select true from profiles where id = auth.uid() and role::text = 'admin'
   ), false);
 $$ language sql stable security definer;
 
@@ -282,7 +280,7 @@ $$ language sql stable security definer;
 -- Null for admins and for anyone not signed in.
 create or replace function my_company_id()
 returns uuid as $$
-  select company_id from profiles where id = auth.uid() and role = 'member';
+  select company_id from profiles where id = auth.uid() and role::text = 'member';
 $$ language sql stable security definer;
 
 -- ------------------------------------------------------------
@@ -309,12 +307,12 @@ drop policy if exists rooms_admin_write on rooms;
 create policy rooms_select on rooms for select to authenticated using (true);
 create policy rooms_admin_write on rooms for all to authenticated using (is_admin()) with check (is_admin());
 
--- Companies: admin full CRUD; a company login can read only its own row.
+-- Companies: admin full CRUD; any signed-in user can read companies to display booking owner names.
 drop policy if exists companies_admin_all on companies;
+drop policy if exists companies_self_read on companies;
 drop policy if exists companies_public_read on companies;
 create policy companies_admin_all on companies for all to authenticated using (is_admin()) with check (is_admin());
-create policy companies_self_read on companies for select to authenticated
-  using (is_admin() or id = my_company_id());
+create policy companies_public_read on companies for select to authenticated using (true);
 
 -- Members: admin full CRUD; a company login can read only its own
 -- company's members (needed for the "acting contact" dropdown).

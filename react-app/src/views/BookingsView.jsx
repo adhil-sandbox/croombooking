@@ -4,9 +4,17 @@ import { sb } from '../lib/supabase';
 import { fmtDisplayDate, fmtTime12, fmtDate } from '../lib/constants';
 import { Badge } from '../components/Badge';
 
+function getBookingCompanyName(booking, companies) {
+  const companyRel = booking.companies || booking.company;
+  const directMatch = companies.find(c => String(c.id) === String(booking.company_id));
+  if (directMatch?.name) return directMatch.name;
+  if (Array.isArray(companyRel)) return companyRel[0]?.name || '—';
+  return companyRel?.name || '—';
+}
+
 export function BookingsView() {
   const { companies, actingCompanyId, isAdmin } = useStore();
-  const [companyFilter, setCompanyFilter] = useState(actingCompanyId || '');
+  const [companyFilter, setCompanyFilter] = useState('');
   const [statusFilter, setStatusFilter]   = useState('');
   const [fromDate, setFromDate]           = useState('');
   const [toDate, setToDate]               = useState('');
@@ -19,8 +27,7 @@ export function BookingsView() {
     let q = sb.from('bookings')
       .select('*, companies(name), members(contact_name), rooms(name)')
       .order('booking_date', { ascending: false });
-    // For non-admins, always filter to their company if no company is explicitly selected
-    const filterCompanyId = companyFilter || (!isAdmin && actingCompanyId ? actingCompanyId : '');
+    const filterCompanyId = isAdmin ? companyFilter : '';
     if (filterCompanyId) q = q.eq('company_id', filterCompanyId);
     if (statusFilter)  q = q.eq('status', statusFilter);
     if (fromDate)      q = q.gte('booking_date', fromDate);
@@ -65,7 +72,7 @@ export function BookingsView() {
                   {/* Card list on small screens */}
                   <div className="booking-cards">
                     {bookings.map(b => (
-                      <BookingCard key={b.id} booking={b} />
+                      <BookingCard key={b.id} booking={b} companies={companies} isAdmin={isAdmin} />
                     ))}
                   </div>
                 </>
@@ -88,7 +95,9 @@ export function BookingsView() {
   );
 }
 
-function BookingCard({ booking: b }) {
+function BookingCard({ booking: b, companies, isAdmin }) {
+  const companyName = getBookingCompanyName(b, companies);
+
   return (
     <div className="booking-card">
       <div className="booking-card-row">
@@ -101,8 +110,10 @@ function BookingCard({ booking: b }) {
         {fmtTime12(b.start_time.slice(0,5))}–{fmtTime12(b.end_time.slice(0,5))} · {b.hours}h
         {b.extra_hours > 0 && <span style={{ color: 'var(--warn)' }}> (+{b.extra_hours}h extra)</span>}
       </div>
-      {b.members?.contact_name && (
-        <div className="booking-card-meta">{b.members.contact_name} · {b.companies?.name}</div>
+      {isAdmin ? (
+        b.members?.contact_name && <div className="booking-card-meta">{b.members.contact_name} · {companyName}</div>
+      ) : (
+        companyName && <div className="booking-card-meta">{companyName}</div>
       )}
     </div>
   );

@@ -12,6 +12,14 @@ import { Modal } from '../components/Modal';
 import { Badge } from '../components/Badge';
 import { toast } from '../components/Toast';
 
+function resolveBookingCompanyName(booking, companies) {
+  const companyRel = booking.companies || booking.company;
+  const directMatch = companies.find(c => String(c.id) === String(booking.company_id));
+  if (directMatch?.name) return directMatch.name;
+  if (Array.isArray(companyRel)) return companyRel[0]?.name || '—';
+  return companyRel?.name || '—';
+}
+
 export function CalendarView() {
   const store = useStore();
   const { calMode, calAnchor, setCalMode, setCalAnchor,
@@ -53,10 +61,7 @@ export function CalendarView() {
       .lte('booking_date', rangeEnd)
       .neq('status', 'cancelled')
       .order('start_time');
-    // Only show own company's bookings unless admin
-    if (!isAdmin && actingCompanyId) {
-      q = q.eq('company_id', actingCompanyId);
-    }
+    // Company users can see all visible bookings on the shared calendar, while quota stays scoped to their company.
     const { data, error } = await q;
     if (!error) setBookings(data || []);
   }, [calMode, calAnchor, isAdmin, actingCompanyId]);
@@ -147,12 +152,12 @@ export function CalendarView() {
       <div className="cal-wrap">
         {calMode === 'month'
           ? <MonthGrid days={days} bookings={bookings} calAnchor={calAnchor}
-              ROOM_COLORS={ROOM_COLORS}
+              ROOM_COLORS={ROOM_COLORS} companies={companies}
               onAddDay={d => setBookingModal({ date: d })}
               onBooking={b => setDetailBooking(b)} />
           : <DayWeekGrid
               columns={columns} bookings={bookings}
-              ROOM_COLORS={ROOM_COLORS} calMode={calMode}
+              ROOM_COLORS={ROOM_COLORS} calMode={calMode} companies={companies}
               onCell={({ roomId, date, startTime }) => setBookingModal({ roomId, date, startTime })}
               onRangeSelect={({ roomId, date, startTime, endTime }) => setBookingModal({ roomId, date, startTime, endTime })}
               onBooking={id => setDetailBooking(bookings.find(b => b.id === id))}
@@ -186,6 +191,7 @@ export function CalendarView() {
       {detailBooking && (
         <BookingDetailModal
           booking={detailBooking}
+          companies={companies}
           isAdmin={isAdmin} actingCompanyId={actingCompanyId}
           onClose={() => setDetailBooking(null)}
           onCancelled={async () => {
@@ -200,7 +206,7 @@ export function CalendarView() {
 }
 
 /* ── Month grid ─────────────────────────────────────────── */
-function MonthGrid({ days, bookings, calAnchor, ROOM_COLORS, onAddDay, onBooking }) {
+function MonthGrid({ days, bookings, calAnchor, ROOM_COLORS, companies, onAddDay, onBooking }) {
   const today = fmtDate(new Date());
   return (
     <div className="month-grid">
@@ -229,19 +235,20 @@ function MonthGrid({ days, bookings, calAnchor, ROOM_COLORS, onAddDay, onBooking
                 {dayBookings.map(b => {
                   const colorKey = ROOM_COLORS[b.room_id];
                   const statusClass = b.status === 'pending_approval' ? 'pending_approval' : b.status === 'cancelled' ? 'cancelled' : '';
+                  const companyName = resolveBookingCompanyName(b, companies);
                   return (
                     <div
                       key={b.id}
                       className={`month-booking-pill ${statusClass}`}
                       style={{ background: `var(--room-${colorKey}-soft)`, borderLeft: `3px solid var(--room-${colorKey})`, color: 'var(--text)' }}
                       onClick={e => { e.stopPropagation(); onBooking(b); }}
-                      title={`${b.companies?.name} · ${b.rooms?.name} · ${fmtTime12(b.start_time.slice(0,5))}–${fmtTime12(b.end_time.slice(0,5))}`}
+                      title={`${companyName} · ${b.rooms?.name} · ${fmtTime12(b.start_time.slice(0,5))}–${fmtTime12(b.end_time.slice(0,5))}`}
                     >
                       <span className="time">
                         {fmtTime12(b.start_time.slice(0,5))}{' '}
                         <span style={{ fontWeight: 700, color: `var(--room-${colorKey})` }}>{b.rooms?.name}</span>
                       </span>
-                      <span>{b.companies?.name || '—'}</span>
+                      <span>{companyName}</span>
                     </div>
                   );
                 })}
@@ -255,7 +262,7 @@ function MonthGrid({ days, bookings, calAnchor, ROOM_COLORS, onAddDay, onBooking
 }
 
 /* ── Day/Week grid ──────────────────────────────────────── */
-function DayWeekGrid({ columns, bookings, ROOM_COLORS, calMode, onCell, onRangeSelect, onBooking }) {
+function DayWeekGrid({ columns, bookings, ROOM_COLORS, calMode, companies, onCell, onRangeSelect, onBooking }) {
   const dragStartRef = useRef(null);
 
   function getSlotBlocks(roomId, day) {
@@ -264,15 +271,16 @@ function DayWeekGrid({ columns, bookings, ROOM_COLORS, calMode, onCell, onRangeS
       const height = ((timeToMinutes(b.end_time.slice(0,5)) - timeToMinutes(b.start_time.slice(0,5))) / SLOT_MINUTES) * 44 - 3;
       const colorVar = `var(--room-${ROOM_COLORS[roomId]})`;
       const statusClass = b.status === 'pending_approval' ? 'pending_approval' : b.status === 'cancelled' ? 'cancelled' : '';
+      const companyName = resolveBookingCompanyName(b, companies);
       return (
         <div
           key={b.id}
           className={`cal-slot-block ${statusClass}`}
           style={{ top: top + 1, height, ...(statusClass ? {} : { background: colorVar }) }}
-          title={`${b.companies?.name} · ${fmtTime12(b.start_time.slice(0,5))}–${fmtTime12(b.end_time.slice(0,5))}`}
+          title={`${companyName} · ${fmtTime12(b.start_time.slice(0,5))}–${fmtTime12(b.end_time.slice(0,5))}`}
           onClick={() => onBooking(b.id)}
         >
-          {b.companies?.name || '—'}
+          {companyName}
           <small>{fmtTime12(b.start_time.slice(0,5))}–{fmtTime12(b.end_time.slice(0,5))}{b.status === 'pending_approval' ? ' · pending' : ''}</small>
         </div>
       );
@@ -511,8 +519,12 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
 }
 
 /* ── Booking detail / cancel modal ─────────────────────── */
-function BookingDetailModal({ booking: b, isAdmin, actingCompanyId, onClose, onCancelled }) {
+function BookingDetailModal({ booking: b, companies, isAdmin, actingCompanyId, onClose, onCancelled }) {
   const today = fmtDate(new Date());
+  const companyRel = b.companies;
+  const companyName = companies.find(c => String(c.id) === String(b.company_id))?.name
+    || (Array.isArray(companyRel) ? companyRel[0]?.name : companyRel?.name)
+    || '—';
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const startMinutes = timeToMinutes(b.start_time.slice(0,5));
@@ -533,7 +545,7 @@ function BookingDetailModal({ booking: b, isAdmin, actingCompanyId, onClose, onC
     if (error) { toast("Couldn't cancel: " + error.message, 'err'); return; }
     await sb.from('notifications').insert([
       { recipient_type: 'member', recipient_id: b.member_id, booking_id: b.id, type: 'cancelled', message: `Booking on ${b.booking_date} was cancelled.` },
-      { recipient_type: 'admin', booking_id: b.id, type: 'cancelled', message: `${b.companies?.name} cancelled their booking on ${b.booking_date}.` }
+      { recipient_type: 'admin', booking_id: b.id, type: 'cancelled', message: `${companyName} cancelled their booking on ${b.booking_date}.` }
     ]);
     toast('Booking cancelled.', 'ok');
     onCancelled();
@@ -550,15 +562,17 @@ function BookingDetailModal({ booking: b, isAdmin, actingCompanyId, onClose, onC
 
   return (
     <Modal title="Booking details" onClose={onClose} footer={footer}>
-      <div className="field"><label>Company</label><div>{b.companies?.name || '—'}</div></div>
-      <div className="field"><label>Member</label><div>{b.members?.contact_name || '—'}</div></div>
+      <div className="field"><label>Company</label><div>{companyName}</div></div>
+      {isAdmin && (
+        <div className="field"><label>Member</label><div>{b.members?.contact_name || '—'}</div></div>
+      )}
       <div className="field"><label>Room</label><div>{b.rooms?.name || '—'}</div></div>
       <div className="field">
         <label>When</label>
         <div>{fmtDisplayDate(b.booking_date)}, {fmtTime12(b.start_time.slice(0,5))}–{fmtTime12(b.end_time.slice(0,5))} ({b.hours}h)</div>
       </div>
       <div className="field"><label>Status</label><div><Badge status={b.status} /></div></div>
-      {b.notes && <div className="field"><label>Notes</label><div>{b.notes}</div></div>}
+      {isAdmin && b.notes && <div className="field"><label>Notes</label><div>{b.notes}</div></div>}
     </Modal>
   );
 }
