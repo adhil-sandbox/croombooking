@@ -21,7 +21,7 @@ const VIEWS = {
 };
 
 export default function App() {
-  const { user, isPending, view, theme, onSignedIn, signOut, loadNotifications } = useStore();
+  const { user, isPending, view, theme, onSignedIn, loadNotifications, signOut } = useStore();
 
   // Apply theme on mount and on change
   useEffect(() => {
@@ -30,13 +30,21 @@ export default function App() {
 
   // Auth listener
   useEffect(() => {
-    sb.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         await onSignedIn(session);
-        // Load notifications in parallel (no need to wait for sign-in to complete)
         loadNotifications();
+      } else if (event === 'SIGNED_OUT') {
+        // Reactively clear UI state when Supabase fires sign-out
+        // (handles both manual sign-out and session expiry)
+        useStore.setState({
+          user: null, profile: null, isAdmin: false, isPending: false,
+          actingCompanyId: null, actingMemberId: null,
+          rooms: [], companies: [], members: [], monthlyUsage: {},
+          notifications: [], ROOM_COLORS: {},
+          view: 'calendar', calMode: 'week',
+        });
       }
-      if (event === 'SIGNED_OUT') signOut();
     });
 
     // Restore existing session on mount
@@ -45,6 +53,8 @@ export default function App() {
         onSignedIn(session).then(() => loadNotifications());
       }
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   if (!user) return (

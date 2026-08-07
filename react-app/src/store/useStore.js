@@ -72,11 +72,9 @@ export const useStore = create((set, get) => ({
   },
 
   signOut: async () => {
+    localStorage.removeItem('sb_acting_member_id');
     await sb.auth.signOut();
-    set({
-      user: null, profile: null, isAdmin: false, isPending: false,
-      actingCompanyId: null, actingMemberId: null,
-    });
+    // State is cleared reactively by the SIGNED_OUT handler in App.jsx
   },
 
   onSignedIn: async (session) => {
