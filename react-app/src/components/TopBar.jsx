@@ -24,7 +24,6 @@ export function TopBar() {
         <div className="topbar-title-group">
           <div className="topbar-brand-row">
             <img src={sandboxLogo} alt="Sandbox" className="mobile-brand-img" />
-            <h1>{VIEW_TITLES[view] || ''}</h1>
           </div>
           {!isAdmin && company && (
             <div className="topbar-company-info">

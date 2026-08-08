@@ -204,19 +204,11 @@ a { color: inherit; text-decoration: none; }
   .mobile-brand-img {
     display: block;
   }
-
-  .topbar h1 {
-    display: none;
-  }
 }
 
 @media (min-width: 769px) {
   .mobile-brand-img {
     display: none;
-  }
-
-  .topbar h1 {
-    display: block;
   }
 }
 
