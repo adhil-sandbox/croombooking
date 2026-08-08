@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { NotificationsPanel } from '../views/NotificationsPanel';
+import sandboxLogo from '../assets/sandbox-logo.png';
 
 const VIEW_TITLES = {
   calendar:   'Book a room',
@@ -21,7 +22,10 @@ export function TopBar() {
     <>
       <div className="topbar">
         <div className="topbar-title-group">
-          <h1>{VIEW_TITLES[view] || ''}</h1>
+          <div className="topbar-brand-row">
+            <img src={sandboxLogo} alt="Sandbox" className="mobile-brand-img" />
+            <h1>{VIEW_TITLES[view] || ''}</h1>
+          </div>
           {!isAdmin && company && (
             <div className="topbar-company-info">
               <span className="company-label">Booking as</span>

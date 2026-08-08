@@ -1,17 +1,18 @@
 import { useStore } from '../store/useStore';
+import sandboxLogo from '../assets/sandbox-logo.png';
 
 const VIEWS = {
-  calendar:   { label: 'Book', icon: '📅' },
+  calendar: { label: 'Book', icon: '📅' },
   mybookings: { label: 'Bookings', icon: '🗂' },
-  approvals:  { label: 'Approvals', icon: '✅' },
-  members:    { label: 'Members', icon: '🏢' },
-  dashboard:  { label: 'Dashboard', icon: '📊' },
+  approvals: { label: 'Approvals', icon: '✅' },
+  members: { label: 'Members', icon: '🏢' },
+  dashboard: { label: 'Dashboard', icon: '📊' },
 };
 
 export function Sidebar() {
   const { view, setView, isAdmin, profile, actingCompany, actingMember,
-          members, actingCompanyId, setActingMemberId, actingMemberId,
-          signOut } = useStore();
+    members, actingCompanyId, setActingMemberId, actingMemberId,
+    signOut } = useStore();
   const company = actingCompany();
   const companyMembers = members.filter(m => m.is_active && m.company_id === actingCompanyId);
   const displayName = profile?.full_name || company?.name || '—';
@@ -20,8 +21,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <span className="dot" />
-        Sandbox Rooms
+        <img src={sandboxLogo} alt="Sandbox" className="brand-img" />
       </div>
 
       {/* Acting box for member logins */}
@@ -42,15 +42,15 @@ export function Sidebar() {
         </div>
       )}
 
-      <NavItem v="calendar"   current={view} setView={setView} />
+      <NavItem v="calendar" current={view} setView={setView} />
       <NavItem v="mybookings" current={view} setView={setView} />
 
       {isAdmin && (
         <>
           <div className="nav-section-label">Admin</div>
-          <NavItem v="approvals"  current={view} setView={setView} />
-          <NavItem v="members"    current={view} setView={setView} />
-          <NavItem v="dashboard"  current={view} setView={setView} />
+          <NavItem v="approvals" current={view} setView={setView} />
+          <NavItem v="members" current={view} setView={setView} />
+          <NavItem v="dashboard" current={view} setView={setView} />
         </>
       )}
 
