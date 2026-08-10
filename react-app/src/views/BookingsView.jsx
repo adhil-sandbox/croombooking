@@ -27,8 +27,8 @@ export function BookingsView() {
     let q = sb.from('bookings')
       .select('*, companies(name), members(contact_name), rooms(name)')
       .order('booking_date', { ascending: false });
-    const filterCompanyId = isAdmin ? companyFilter : '';
-    if (filterCompanyId) q = q.eq('company_id', filterCompanyId);
+    const companyId = isAdmin ? companyFilter : actingCompanyId;
+    if (companyId) q = q.eq('company_id', companyId);
     if (statusFilter)  q = q.eq('status', statusFilter);
     if (fromDate)      q = q.gte('booking_date', fromDate);
     if (toDate)        q = q.lte('booking_date', toDate);
@@ -46,11 +46,18 @@ export function BookingsView() {
   return (
     <div>
       <div className="filter-bar">
-        {isAdmin && (
+        {isAdmin ? (
           <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)}>
             <option value="">All companies</option>
             {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+        ) : (
+          <input
+            type="text"
+            value={companies.find(c => String(c.id) === String(actingCompanyId))?.name || ''}
+            readOnly
+            placeholder="Your company"
+          />
         )}
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">All statuses</option>

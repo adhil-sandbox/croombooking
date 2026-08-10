@@ -23,10 +23,10 @@ function resolveBookingCompanyName(booking, companies) {
 export function CalendarView() {
   const store = useStore();
   const { calMode, calAnchor, setCalMode, setCalAnchor,
-          rooms, companies, members, ROOM_COLORS,
-          isAdmin, actingCompanyId, actingMemberId,
-          monthlyUsage, loadMonthlyUsage, refreshNotifBadge,
-          actingCompany, actingMember } = store;
+    rooms, companies, members, ROOM_COLORS,
+    isAdmin, actingCompanyId, actingMemberId,
+    monthlyUsage, loadMonthlyUsage, refreshNotifBadge,
+    actingCompany, actingMember } = store;
 
   const [bookings, setBookings] = useState([]);
   const [bookingModal, setBookingModal] = useState(null); // prefill obj
@@ -152,16 +152,16 @@ export function CalendarView() {
       <div className="cal-wrap">
         {calMode === 'month'
           ? <MonthGrid days={days} bookings={bookings} calAnchor={calAnchor}
-              ROOM_COLORS={ROOM_COLORS} companies={companies}
-              onAddDay={d => setBookingModal({ date: d })}
-              onBooking={b => setDetailBooking(b)} />
+            rooms={rooms} ROOM_COLORS={ROOM_COLORS} companies={companies}
+            onAddDay={d => setBookingModal({ date: d })}
+            onBooking={b => setDetailBooking(b)} />
           : <DayWeekGrid
-              columns={columns} bookings={bookings}
-              ROOM_COLORS={ROOM_COLORS} calMode={calMode} companies={companies}
-              onCell={({ roomId, date, startTime }) => setBookingModal({ roomId, date, startTime })}
-              onRangeSelect={({ roomId, date, startTime, endTime }) => setBookingModal({ roomId, date, startTime, endTime })}
-              onBooking={id => setDetailBooking(bookings.find(b => b.id === id))}
-            />
+            columns={columns} bookings={bookings}
+            ROOM_COLORS={ROOM_COLORS} calMode={calMode} companies={companies}
+            onCell={({ roomId, date, startTime }) => setBookingModal({ roomId, date, startTime })}
+            onRangeSelect={({ roomId, date, startTime, endTime }) => setBookingModal({ roomId, date, startTime, endTime })}
+            onBooking={id => setDetailBooking(bookings.find(b => b.id === id))}
+          />
         }
       </div>
 
@@ -206,12 +206,28 @@ export function CalendarView() {
 }
 
 /* ── Month grid ─────────────────────────────────────────── */
-function MonthGrid({ days, bookings, calAnchor, ROOM_COLORS, companies, onAddDay, onBooking }) {
+function MonthGrid({ days, bookings, calAnchor, rooms, ROOM_COLORS, companies, onAddDay, onBooking }) {
   const today = fmtDate(new Date());
+
+  function isBookingOnSlot(booking, slot) {
+    const slotStart = timeToMinutes(slot);
+    const slotEnd = slotStart + SLOT_MINUTES;
+    const bookingStart = timeToMinutes(booking.start_time.slice(0, 5));
+    const bookingEnd = timeToMinutes(booking.end_time.slice(0, 5));
+    return slotStart < bookingEnd && slotEnd > bookingStart;
+  }
+
+  function isDayFullyBooked(dayBookings) {
+    if (!rooms.length) return false;
+    return SLOTS.every(slot => rooms.every(room =>
+      dayBookings.some(b => b.room_id === room.id && isBookingOnSlot(b, slot))
+    ));
+  }
+
   return (
     <div className="month-grid">
       <div className="month-head-row">
-        {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
           <div key={d} className="month-head-cell">{d}</div>
         ))}
       </div>
@@ -219,17 +235,23 @@ function MonthGrid({ days, bookings, calAnchor, ROOM_COLORS, companies, onAddDay
         {days.map(day => {
           const isOtherMonth = day.slice(0, 7) !== calAnchor.slice(0, 7);
           const isToday = day === today;
+          const isPast = day < today;
           const dayNum = Number(day.slice(8, 10));
           const dayBookings = bookings.filter(b => b.booking_date === day);
           return (
             <div
               key={day}
-              className={`month-day${isOtherMonth ? ' other-month' : ''}${isToday ? ' today' : ''}`}
-              onClick={() => onAddDay(day)}
+              className={`month-day${isOtherMonth ? ' other-month' : ''}${isToday ? ' today' : ''}${isPast ? ' past' : ''}${isDayFullyBooked(dayBookings) ? ' full' : ''}`}
+              onClick={() => !isPast && onAddDay(day)}
             >
               <div className="month-day-header">
                 <span className="month-day-num">{dayNum}</span>
-                <button className="month-day-add-btn" onClick={e => { e.stopPropagation(); onAddDay(day); }}>+</button>
+                <button
+                  className="month-day-add-btn"
+                  disabled={isPast}
+                  onClick={e => { e.stopPropagation(); if (!isPast) onAddDay(day); }}
+                >+
+                </button>
               </div>
               <div className="month-bookings-list">
                 {dayBookings.map(b => {
@@ -242,10 +264,10 @@ function MonthGrid({ days, bookings, calAnchor, ROOM_COLORS, companies, onAddDay
                       className={`month-booking-pill ${statusClass}`}
                       style={{ background: `var(--room-${colorKey}-soft)`, borderLeft: `3px solid var(--room-${colorKey})`, color: 'var(--text)' }}
                       onClick={e => { e.stopPropagation(); onBooking(b); }}
-                      title={`${companyName} · ${b.rooms?.name} · ${fmtTime12(b.start_time.slice(0,5))}–${fmtTime12(b.end_time.slice(0,5))}`}
+                      title={`${companyName} · ${b.rooms?.name} · ${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))}`}
                     >
                       <span className="time">
-                        {fmtTime12(b.start_time.slice(0,5))}{' '}
+                        {fmtTime12(b.start_time.slice(0, 5))}{' '}
                         <span style={{ fontWeight: 700, color: `var(--room-${colorKey})` }}>{b.rooms?.name}</span>
                       </span>
                       <span>{companyName}</span>
@@ -267,8 +289,8 @@ function DayWeekGrid({ columns, bookings, ROOM_COLORS, calMode, companies, onCel
 
   function getSlotBlocks(roomId, day) {
     return bookings.filter(b => b.room_id === roomId && b.booking_date === day).map(b => {
-      const top = ((timeToMinutes(b.start_time.slice(0,5)) - timeToMinutes(BUSINESS_START)) / SLOT_MINUTES) * 44;
-      const height = ((timeToMinutes(b.end_time.slice(0,5)) - timeToMinutes(b.start_time.slice(0,5))) / SLOT_MINUTES) * 44 - 3;
+      const top = ((timeToMinutes(b.start_time.slice(0, 5)) - timeToMinutes(BUSINESS_START)) / SLOT_MINUTES) * 44;
+      const height = ((timeToMinutes(b.end_time.slice(0, 5)) - timeToMinutes(b.start_time.slice(0, 5))) / SLOT_MINUTES) * 44 - 3;
       const colorVar = `var(--room-${ROOM_COLORS[roomId]})`;
       const statusClass = b.status === 'pending_approval' ? 'pending_approval' : b.status === 'cancelled' ? 'cancelled' : '';
       const companyName = resolveBookingCompanyName(b, companies);
@@ -277,13 +299,24 @@ function DayWeekGrid({ columns, bookings, ROOM_COLORS, calMode, companies, onCel
           key={b.id}
           className={`cal-slot-block ${statusClass}`}
           style={{ top: top + 1, height, ...(statusClass ? {} : { background: colorVar }) }}
-          title={`${companyName} · ${fmtTime12(b.start_time.slice(0,5))}–${fmtTime12(b.end_time.slice(0,5))}`}
+          title={`${companyName} · ${fmtTime12(b.start_time.slice(0, 5))}–${fmtTime12(b.end_time.slice(0, 5))}`}
           onClick={() => onBooking(b.id)}
         >
           {companyName}
-          <small>{fmtTime12(b.start_time.slice(0,5))}–{fmtTime12(b.end_time.slice(0,5))}{b.status === 'pending_approval' ? ' · pending' : ''}</small>
+          <small>{fmtTime12(b.start_time.slice(0, 5))}–{fmtTime12(b.end_time.slice(0, 5))}{b.status === 'pending_approval' ? ' · pending' : ''}</small>
         </div>
       );
+    });
+  }
+
+  function isSlotAvailable(roomId, day, slot) {
+    const slotStart = timeToMinutes(slot);
+    const slotEnd = slotStart + SLOT_MINUTES;
+    return !bookings.some(b => {
+      if (b.room_id !== roomId || b.booking_date !== day) return false;
+      const bookingStart = timeToMinutes(b.start_time.slice(0, 5));
+      const bookingEnd = timeToMinutes(b.end_time.slice(0, 5));
+      return slotStart < bookingEnd && slotEnd > bookingStart;
     });
   }
 
@@ -316,33 +349,38 @@ function DayWeekGrid({ columns, bookings, ROOM_COLORS, calMode, companies, onCel
 
       {columns.map((c, ci) => (
         <div key={ci} style={{ gridColumn: ci + 2, gridRow: 2, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          {SLOTS.map(s => (
-            <div
-              key={s}
-              className="cal-cell"
-              data-room={c.room.id} data-day={c.day} data-time={s}
-              onMouseDown={e => {
-                dragStartRef.current = e.currentTarget;
-                e.currentTarget.classList.add('selecting');
-              }}
-              onMouseEnter={e => {
-                if (!dragStartRef.current) return;
-                const start = dragStartRef.current;
-                if (start.dataset.room !== c.room.id || start.dataset.day !== c.day) return;
-                // highlight range
-                const parent = start.parentElement;
-                parent.querySelectorAll('.cal-cell.selecting').forEach(el => el.classList.remove('selecting'));
-                const cells = [...parent.querySelectorAll('.cal-cell')];
-                const si = cells.indexOf(start), ei = cells.indexOf(e.currentTarget);
-                const [lo, hi] = si < ei ? [si, ei] : [ei, si];
-                cells.slice(lo, hi + 1).forEach(el => el.classList.add('selecting'));
-              }}
-              onClick={e => {
-                if (dragStartRef.current === e.currentTarget)
-                  onCell({ roomId: c.room.id, date: c.day, startTime: s });
-              }}
-            />
-          ))}
+          {SLOTS.map(s => {
+            const available = isSlotAvailable(c.room.id, c.day, s);
+            return (
+              <div
+                key={s}
+                className={`cal-cell${available ? ' available' : ''}`}
+                data-room={c.room.id} data-day={c.day} data-time={s}
+                onMouseDown={e => {
+                  dragStartRef.current = e.currentTarget;
+                  e.currentTarget.classList.add('selecting');
+                }}
+                onMouseEnter={e => {
+                  if (!dragStartRef.current) return;
+                  const start = dragStartRef.current;
+                  if (start.dataset.room !== c.room.id || start.dataset.day !== c.day) return;
+                  // highlight range
+                  const parent = start.parentElement;
+                  parent.querySelectorAll('.cal-cell.selecting').forEach(el => el.classList.remove('selecting'));
+                  const cells = [...parent.querySelectorAll('.cal-cell')];
+                  const si = cells.indexOf(start), ei = cells.indexOf(e.currentTarget);
+                  const [lo, hi] = si < ei ? [si, ei] : [ei, si];
+                  cells.slice(lo, hi + 1).forEach(el => el.classList.add('selecting'));
+                }}
+                onClick={e => {
+                  if (dragStartRef.current === e.currentTarget)
+                    onCell({ roomId: c.room.id, date: c.day, startTime: s });
+                }}
+              >
+                {available && <span className="cal-cell-available">Available</span>}
+              </div>
+            );
+          })}
           {getSlotBlocks(c.room.id, c.day)}
         </div>
       ))}
@@ -356,14 +394,14 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
   const activeCompanies = companies.filter(c => c.is_active);
 
   const [companyId, setCompanyId] = useState(prefill.companyId || actingCompanyId || activeCompanies[0]?.id || '');
-  const [memberId, setMemberId]   = useState('');
-  const [roomId, setRoomId]       = useState(prefill.roomId || rooms[0]?.id || '');
-  const [date, setDate]           = useState(prefill.date || fmtDate(new Date()));
+  const [memberId, setMemberId] = useState('');
+  const [roomId, setRoomId] = useState(prefill.roomId || rooms[0]?.id || '');
+  const [date, setDate] = useState(prefill.date || fmtDate(new Date()));
   const [startTime, setStartTime] = useState(prefill.startTime || SLOTS[0]);
-  const [endTime, setEndTime]     = useState(prefill.endTime || SLOTS[1] || BUSINESS_END);
-  const [notes, setNotes]         = useState('');
-  const [notice, setNotice]       = useState('');
-  const [loading, setLoading]     = useState(false);
+  const [endTime, setEndTime] = useState(prefill.endTime || SLOTS[1] || BUSINESS_END);
+  const [notes, setNotes] = useState('');
+  const [notice, setNotice] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const companyMembers = members.filter(m => m.is_active && (m.company_id == companyId));
 
@@ -408,7 +446,7 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
     const { data: overlaps } = await sb.from('bookings').select('id,start_time,end_time')
       .eq('room_id', roomId).eq('booking_date', date).in('status', ['confirmed', 'pending_approval', 'completed']);
     const conflict = (overlaps || []).some(b =>
-      startMin < timeToMinutes(b.end_time.slice(0,5)) && endMin > timeToMinutes(b.start_time.slice(0,5))
+      startMin < timeToMinutes(b.end_time.slice(0, 5)) && endMin > timeToMinutes(b.start_time.slice(0, 5))
     );
     if (conflict) { setNotice('That room is already booked for part of this time.'); setLoading(false); return; }
 
@@ -540,11 +578,11 @@ function BookingDetailModal({ booking: b, companies, isAdmin, actingCompanyId, o
     || '—';
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const startMinutes = timeToMinutes(b.start_time.slice(0,5));
-  
+  const startMinutes = timeToMinutes(b.start_time.slice(0, 5));
+
   // Booking is past if: (1) date is before today OR (2) date is today AND start time has passed
   const isPast = b.booking_date < today || (b.booking_date === today && startMinutes <= nowMinutes);
-  
+
   const canManage = ['confirmed', 'pending_approval'].includes(b.status)
     && (isAdmin || b.company_id === actingCompanyId);
   const canCancel = canManage && !isPast;
@@ -582,7 +620,7 @@ function BookingDetailModal({ booking: b, companies, isAdmin, actingCompanyId, o
       <div className="field"><label>Room</label><div>{b.rooms?.name || '—'}</div></div>
       <div className="field">
         <label>When</label>
-        <div>{fmtDisplayDate(b.booking_date)}, {fmtTime12(b.start_time.slice(0,5))}–{fmtTime12(b.end_time.slice(0,5))} ({b.hours}h)</div>
+        <div>{fmtDisplayDate(b.booking_date)}, {fmtTime12(b.start_time.slice(0, 5))}–{fmtTime12(b.end_time.slice(0, 5))} ({b.hours}h)</div>
       </div>
       <div className="field"><label>Status</label><div><Badge status={b.status} /></div></div>
       {isAdmin && b.notes && <div className="field"><label>Notes</label><div>{b.notes}</div></div>}

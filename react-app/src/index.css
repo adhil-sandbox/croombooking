@@ -66,6 +66,16 @@
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, .5);
 }
 
+[data-theme="dark"] .icon-btn {
+  color: #ffffff;
+  border-color: #4a4a4a;
+  background: #292929;
+}
+
+[data-theme="dark"] .icon-btn:hover {
+  background: #333333;
+}
+
 /* ============================================================
    Reset & Base
    ============================================================ */
@@ -235,12 +245,29 @@ button.icon-btn.mobile-signout-icon {
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   }
 
+  .topbar-title-group {
+    align-items: flex-start;
+  }
+
   .mobile-brand-img {
     display: block;
   }
 
   .topbar h1 {
     display: none;
+  }
+
+  .topbar-title-group {
+    width: 100%;
+  }
+
+  .topbar-brand-row {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .mobile-brand-img {
+    margin-left: -60px;
   }
 
   .topbar-company-info {
@@ -928,24 +955,30 @@ tr:hover td {
 .cal-wrap {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
   background: var(--bg);
   max-height: calc(100dvh - 230px);
   -webkit-overflow-scrolling: touch;
+  position: relative;
 }
 
 .cal-grid {
-  display: grid;
+  display: inline-grid;
+  width: max-content;
   min-width: 520px;
+  position: relative;
+  grid-template-rows: auto 1fr;
 }
 
 .cal-head-row {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 4;
   display: grid;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
+  grid-row: 1;
 }
 
 .cal-head-cell {
@@ -970,11 +1003,15 @@ tr:hover td {
 
 .cal-time-col {
   position: sticky;
+  top: 44px;
   left: 0;
-  z-index: 2;
+  z-index: 6;
   background: var(--bg);
   border-right: 1px solid var(--border);
   width: 58px;
+  grid-row: 2 / -1;
+  grid-column: 1;
+  align-self: start;
 }
 
 .cal-time-label {
@@ -994,13 +1031,34 @@ tr:hover td {
 .cal-cell {
   height: 44px;
   border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   position: relative;
   cursor: pointer;
   transition: background .08s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
 }
 
 .cal-cell:hover {
   background: var(--bg-hover);
+}
+
+.cal-cell.available {
+  background: var(--ok-soft);
+  color: var(--ok);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cal-cell.available:hover {
+  background: #d9f5d9;
+}
+
+.cal-cell.available .cal-cell-available {
+  width: 100%;
+  text-align: center;
 }
 
 .cal-cell.selecting {
@@ -1104,6 +1162,29 @@ tr:hover td {
 
 .month-day.today {
   background: var(--accent-soft);
+}
+
+.month-day.past {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.month-day.past .month-day-add-btn {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.month-day.full {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.month-day.full .month-day-header {
+  color: var(--danger);
+}
+
+.month-day.full .month-booking-pill {
+  opacity: 0.7;
 }
 
 .month-day-header {
