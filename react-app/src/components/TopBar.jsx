@@ -3,16 +3,8 @@ import { useStore } from '../store/useStore';
 import { NotificationsPanel } from '../views/NotificationsPanel';
 import sandboxLogo from '../assets/sandbox-logo.png';
 
-const VIEW_TITLES = {
-  calendar:   'Book a room',
-  mybookings: 'Bookings',
-  approvals:  'Approval queue',
-  members:    'Members',
-  dashboard:  'Dashboard',
-};
-
 export function TopBar() {
-  const { view, theme, toggleTheme, unreadCount, isAdmin, actingCompany, actingMember, signOut } = useStore();
+  const { theme, toggleTheme, unreadCount, isAdmin, actingCompany, actingMember, signOut } = useStore();
   const [showNotifs, setShowNotifs] = useState(false);
   const unread = unreadCount();
   const company = actingCompany();
@@ -24,18 +16,14 @@ export function TopBar() {
         <div className="topbar-title-group">
           <div className="topbar-brand-row">
             <img src={sandboxLogo} alt="Sandbox" className="mobile-brand-img" />
-            <h1>{VIEW_TITLES[view] || ''}</h1>
           </div>
-          {!isAdmin && company && (
-            <div className="topbar-company-info">
-              <span className="company-label">Booking as</span>
-              <span className="company-name">{company.name}</span>
-            </div>
-          )}
         </div>
         <div className="topbar-actions">
           <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
             {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button className="icon-btn mobile-signout-icon" onClick={signOut} title="Sign out">
+            🔓
           </button>
           <button
             className="icon-btn"
@@ -60,14 +48,11 @@ export function TopBar() {
           <div>
             <div className="acting-company-name">{company.name}</div>
             {member && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              <div className="mobile-acting-member-name" style={{ fontSize: 12, marginTop: 2 }}>
                 👤 {member.contact_name}
               </div>
             )}
           </div>
-          <button className="btn btn-ghost btn-sm mobile-signout" onClick={signOut}>
-            Sign out
-          </button>
         </div>
       )}
 
