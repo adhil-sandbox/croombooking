@@ -71,15 +71,15 @@ export function MembersView() {
       return;
     }
 
-    // Create a member contact row for this company if one doesn't exist yet
+    // Create a member contact row for this approved profile so they
+    // appear in booking dropdowns even if the company already has members.
     if (pendingProfile) {
-      const { data: existingMembers } = await sb.from('members').select('id').eq('company_id', companyId);
-      if (!existingMembers || existingMembers.length === 0) {
-        await sb.from('members').insert({
-          company_id: companyId,
-          contact_name: pendingProfile.full_name || 'Primary Contact',
-        });
-      }
+      await sb.from('members').insert({
+        company_id: companyId,
+        contact_name: pendingProfile.full_name || 'Primary Contact',
+        email: pendingProfile.email || null,
+        phone: pendingProfile.phone || null,
+      });
     }
 
     toast(`Approved user for ${targetCompany?.name || 'company'}.`, 'ok');
@@ -159,7 +159,7 @@ export function MembersView() {
             </div>
           ) : (
             companies.map(c => {
-              const primary = (c.members || [])[0];
+              const membersList = c.members || [];
               const used = c.usage?.hours_used || 0;
               const remaining = Math.max(0, c.monthly_hours_allocation - used);
               return (
@@ -167,11 +167,13 @@ export function MembersView() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</div>
-                      {primary && (
+                      {membersList.length > 0 && (
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                          {primary.contact_name}
-                          {primary.email && ` · ${primary.email}`}
-                          {primary.phone && ` · ${primary.phone}`}
+                          {membersList.map((m, i) => (
+                            <div key={m.id} style={{ marginTop: i === 0 ? 0 : 4 }}>
+                              {m.contact_name}{m.email && ` · ${m.email}`}{m.phone && ` · ${m.phone}`}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

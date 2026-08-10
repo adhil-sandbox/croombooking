@@ -10,11 +10,9 @@ const VIEWS = {
 };
 
 export function Sidebar() {
-  const { view, setView, isAdmin, profile, actingCompany, actingMember,
-    members, actingCompanyId, setActingMemberId, actingMemberId,
-    signOut } = useStore();
+  const { view, setView, isAdmin, profile, actingCompany, actingMember, signOut } = useStore();
   const company = actingCompany();
-  const companyMembers = members.filter(m => m.is_active && m.company_id === actingCompanyId);
+  const member = actingMember();
   const displayName = profile?.full_name || company?.name || '—';
   const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -28,17 +26,12 @@ export function Sidebar() {
       {!isAdmin && company && (
         <div className="acting-box">
           <div className="nav-section-label">Booking as</div>
-          <div className="acting-company-name">{company.name}</div>
-          <select
-            value={actingMemberId || ''}
-            onChange={e => setActingMemberId(e.target.value || null)}
-            style={{ marginBottom: 8 }}
-          >
-            <option value="">Select contact…</option>
-            {companyMembers.map(m => (
-              <option key={m.id} value={m.id}>{m.contact_name}</option>
-            ))}
-          </select>
+          <div className="acting-company-name" style={{ color: '#fff' }}>{company.name}</div>
+          {member && (
+            <div className="acting-member-name" style={{ fontSize: 12.5, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
+              👤 {member.contact_name}
+            </div>
+          )}
         </div>
       )}
 

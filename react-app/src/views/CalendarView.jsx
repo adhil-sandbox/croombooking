@@ -365,14 +365,18 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
   const [notice, setNotice]       = useState('');
   const [loading, setLoading]     = useState(false);
 
-  const companyMembers = members.filter(m => m.is_active && m.company_id === companyId);
+  const companyMembers = members.filter(m => m.is_active && (m.company_id == companyId));
 
   useEffect(() => {
-    const defaultMember = companyId === actingCompanyId && actingMemberId
-      ? actingMemberId
-      : companyMembers[0]?.id || '';
-    setMemberId(defaultMember);
-  }, [companyId]);
+    if (isAdmin) {
+      const defaultMember = (companyId === actingCompanyId && actingMemberId)
+        ? actingMemberId
+        : companyMembers[0]?.id || '';
+      setMemberId(defaultMember);
+    } else {
+      setMemberId(actingMemberId || companyMembers[0]?.id || '');
+    }
+  }, [companyId, members, actingCompanyId, actingMemberId, isAdmin]);
 
   async function handleSubmit() {
     setNotice(''); setLoading(true);
@@ -476,11 +480,20 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
 
       <div className="field">
         <label>Member (contact person)</label>
-        <select value={memberId} onChange={e => setMemberId(e.target.value)}>
-          {companyMembers.length
-            ? companyMembers.map(m => <option key={m.id} value={m.id}>{m.contact_name}</option>)
-            : <option value="">No active members for this company</option>}
-        </select>
+        {isAdmin ? (
+          <select value={memberId} onChange={e => setMemberId(e.target.value)}>
+            {companyMembers.length
+              ? companyMembers.map(m => <option key={m.id} value={m.id}>{m.contact_name}</option>)
+              : <option value="">No active members for this company</option>}
+          </select>
+        ) : (
+          <input
+            type="text"
+            value={companyMembers.find(m => m.id === memberId)?.contact_name || user?.user_metadata?.full_name || user?.email || 'Logged in member'}
+            disabled
+            style={{ background: 'var(--bg-subtle)', cursor: 'not-allowed', color: 'var(--text-muted)' }}
+          />
+        )}
       </div>
 
       <div className="field">

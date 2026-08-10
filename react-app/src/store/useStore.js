@@ -73,6 +73,7 @@ export const useStore = create((set, get) => ({
 
   signOut: async () => {
     localStorage.removeItem('sb_acting_member_id');
+    set({ actingMemberId: null });
     await sb.auth.signOut();
     // State is cleared reactively by the SIGNED_OUT handler in App.jsx
   },
@@ -115,7 +116,30 @@ export const useStore = create((set, get) => ({
     ]);
     const ROOM_COLORS = {};
     (rooms || []).forEach((r, i) => { ROOM_COLORS[r.id] = i % 2 === 0 ? 'sb1' : 'sb2'; });
-    set({ rooms: rooms || [], companies: companies || [], members: members || [], ROOM_COLORS });
+
+    const { isAdmin, actingCompanyId, user, profile } = get();
+    let actingMemberId = get().actingMemberId;
+
+    if (!isAdmin && actingCompanyId) {
+      const companyMembers = (members || []).filter(m => m.is_active && m.company_id === actingCompanyId);
+      let matched = null;
+      if (user?.email) {
+        matched = companyMembers.find(m => m.email && m.email.toLowerCase() === user.email.toLowerCase());
+      }
+      if (!matched && (profile?.full_name || user?.user_metadata?.full_name)) {
+        const targetName = (profile?.full_name || user?.user_metadata?.full_name).toLowerCase();
+        matched = companyMembers.find(m => m.contact_name && m.contact_name.toLowerCase() === targetName);
+      }
+      if (!matched && companyMembers.length > 0) {
+        matched = companyMembers[0];
+      }
+      actingMemberId = matched ? matched.id : null;
+      if (actingMemberId) {
+        localStorage.setItem('sb_acting_member_id', actingMemberId);
+      }
+    }
+
+    set({ rooms: rooms || [], companies: companies || [], members: members || [], ROOM_COLORS, actingMemberId });
   },
 
   loadMonthlyUsage: async () => {
