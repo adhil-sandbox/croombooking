@@ -219,6 +219,7 @@ export function MembersView() {
       {editCompany !== undefined && (
         <MemberModal
           company={editCompany}
+          companies={companies}
           onClose={() => setEditCompany(undefined)}
           onSaved={() => { setEditCompany(undefined); load(); }}
         />
@@ -397,8 +398,10 @@ function CreateCompanyModal({ pendingUser, onClose, onSaved }) {
   );
 }
 
-function MemberModal({ company, onClose, onSaved }) {
+function MemberModal({ company, companies, onClose, onSaved }) {
   const primary = company?.members?.[0];
+  const isAddMember = !company;
+  const [selectedCompanyId, setSelectedCompanyId] = useState(company?.id || companies[0]?.id || '');
   const [companyName, setCompanyName] = useState(company?.name || '');
   const [contactName, setContactName] = useState(primary?.contact_name || '');
   const [email, setEmail]             = useState(primary?.email || '');
@@ -409,8 +412,43 @@ function MemberModal({ company, onClose, onSaved }) {
   const [notice, setNotice]           = useState('');
   const [loading, setLoading]         = useState(false);
 
+  useEffect(() => {
+    if (!isAddMember) return;
+    const sel = (companies || []).find(c => String(c.id) === String(selectedCompanyId));
+    if (sel) {
+      setCategory(sel.category || 'member');
+      setAllocation(Number(sel.monthly_hours_allocation) || 10);
+    }
+  }, [selectedCompanyId, companies, isAddMember]);
+
   async function handleSave() {
     setNotice(''); setLoading(true);
+    if (isAddMember) {
+      if (!selectedCompanyId || !contactName) {
+        setNotice('Company and contact person are required.'); setLoading(false); return;
+      }
+      const { error: memberError } = await sb.from('members').insert({
+        company_id: selectedCompanyId,
+        contact_name: contactName,
+        email: email || null,
+        phone: phone || null,
+      });
+      if (memberError) { setNotice(memberError.message); setLoading(false); return; }
+
+      if (loginUuid) {
+        const { error: profileError } = await sb.from('profiles').upsert({
+          id: loginUuid,
+          role: 'member',
+          company_id: selectedCompanyId,
+          full_name: contactName,
+        });
+        if (profileError) { setNotice('Member added, but login link failed: ' + profileError.message); setLoading(false); return; }
+      }
+      toast('Member added.', 'ok');
+      setLoading(false);
+      onSaved();
+      return;
+    }
     if (!companyName || !contactName) {
       setNotice('Company name and contact person are required.'); setLoading(false); return;
     }
@@ -449,7 +487,18 @@ function MemberModal({ company, onClose, onSaved }) {
   return (
     <Modal title={company ? 'Edit company details' : 'Add member'} onClose={onClose} footer={footer}>
       {notice && <div className="notice notice-danger"><span>⚠️</span><span>{notice}</span></div>}
-      <div className="field"><label>Company name</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
+      {isAddMember ? (
+        <div className="field">
+          <label>Company</label>
+          <select value={selectedCompanyId} onChange={e => setSelectedCompanyId(e.target.value)}>
+            {companies.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <div className="field"><label>Company name</label><input value={companyName} onChange={e => setCompanyName(e.target.value)} /></div>
+      )}
       <div className="field"><label>Contact person</label><input value={contactName} onChange={e => setContactName(e.target.value)} /></div>
       <div className="field-row">
         <div className="field"><label>Email (optional)</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} /></div>

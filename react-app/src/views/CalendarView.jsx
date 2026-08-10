@@ -124,7 +124,19 @@ export function CalendarView() {
               </button>
             ))}
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => setBookingModal({})}>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => {
+              const ac = actingCompany();
+              if (!isAdmin && ac && !ac.is_active) {
+                toast('Your company is deactivated and cannot make bookings.', 'err');
+                return;
+              }
+              setBookingModal({});
+            }}
+            disabled={!isAdmin && actingCompany() && !actingCompany().is_active}
+            title={!isAdmin && actingCompany() && !actingCompany().is_active ? 'Company deactivated' : ''}
+          >
             + Book
           </button>
         </div>
@@ -451,6 +463,9 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
     if (conflict) { setNotice('That room is already booked for part of this time.'); setLoading(false); return; }
 
     const company = companies.find(c => c.id === companyId);
+    if (company && company.is_active === false) {
+      setNotice('This company is deactivated and cannot make bookings.'); setLoading(false); return;
+    }
     const ym = currentYearMonth(date);
     const { data: usageRow } = await sb.from('monthly_usage').select('*')
       .eq('company_id', companyId).eq('year_month', ym).maybeSingle();
