@@ -28,6 +28,25 @@ export default function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Try to keep the app in portrait mode on supported browsers
+  useEffect(() => {
+    const lockOrientation = async () => {
+      if (typeof window === 'undefined' || !window.screen) return;
+      const screenOrientation = window.screen.orientation || window.screen.mozOrientation || window.screen.msOrientation;
+      if (screenOrientation?.lock) {
+        try {
+          await screenOrientation.lock('portrait');
+        } catch (err) {
+          // orientation lock may be unsupported or denied
+        }
+      } else if (window.screen.lockOrientation) {
+        window.screen.lockOrientation('portrait');
+      }
+    };
+
+    lockOrientation();
+  }, []);
+
   // Auth listener
   useEffect(() => {
     const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
