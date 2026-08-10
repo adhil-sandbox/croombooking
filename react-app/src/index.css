@@ -222,7 +222,7 @@ a {
 
 .mobile-brand-img {
   display: none;
-  width: 229px;
+  width: 248px;
   max-width: 100%;
   height: auto;
   object-fit: contain;
@@ -492,8 +492,8 @@ button.icon-btn.mobile-signout-icon {
    ============================================================ */
 .bottom-tab-bar {
   display: flex;
-  gap: 8px;
-  padding: 10px;
+  gap: 6px;
+  padding: 6px 8px 8px;
   background: rgba(255, 255, 255, 0.94);
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 -1px 18px rgba(0, 0, 0, 0.08);
@@ -512,17 +512,17 @@ button.icon-btn.mobile-signout-icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px 8px;
-  gap: 4px;
+  padding: 8px 6px;
+  gap: 2px;
   cursor: pointer;
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  min-height: var(--bottombar-height);
+  min-height: 52px;
   transition: transform .14s ease, background .14s ease, color .14s ease, box-shadow .14s ease;
   user-select: none;
   position: relative;
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(250, 250, 250, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.06);
 }
@@ -534,7 +534,7 @@ button.icon-btn.mobile-signout-icon {
 }
 
 .tab-item .tab-icon {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1;
 }
 
