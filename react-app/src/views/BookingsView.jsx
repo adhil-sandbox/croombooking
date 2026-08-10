@@ -63,8 +63,8 @@ export function BookingsView() {
           <option value="">All statuses</option>
           {statuses.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
         </select>
-        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} placeholder="From" />
-        <input type="date" value={toDate}   onChange={e => setToDate(e.target.value)}   placeholder="To" />
+        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} placeholder="Start Date" />
+        <input type="date" value={toDate}   onChange={e => setToDate(e.target.value)}   placeholder="End Date" />
         <button className="btn btn-sm btn-primary" onClick={load}>Filter</button>
       </div>
 
