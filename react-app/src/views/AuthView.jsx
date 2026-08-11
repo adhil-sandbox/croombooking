@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
+import sandboxLogo from '../assets/sandbox-logo.png';
 
 export function AuthView() {
   const { signIn, signInWithGoogle } = useStore();
@@ -31,9 +32,26 @@ export function AuthView() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="brand-head">
-          <span className="dot" style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
-          <h2>Sandbox Rooms</h2>
+        <div className="brand-head" style={{ marginBottom: 16, justifyContent: 'center' }}>
+          <div
+            style={{
+              background: '#2e4b93',
+              padding: '14px 18px',
+              borderRadius: 16,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              maxWidth: 240,
+              boxShadow: '0 8px 24px rgba(46, 75, 147, 0.2)'
+            }}
+          >
+            <img
+              src={sandboxLogo}
+              alt="Sandbox Rooms"
+              style={{ width: '100%', maxWidth: 188, height: 'auto', display: 'block' }}
+            />
+          </div>
         </div>
         <p>Sign in with Google or your password account to book a room.</p>
 
