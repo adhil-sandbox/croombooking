@@ -72,7 +72,7 @@ export const useStore = create((set, get) => ({
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
+        redirectTo: 'https://booking.sandboxworkspaces.com'
       }
     });
     return error;
