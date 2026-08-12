@@ -64,14 +64,7 @@ export const useStore = create((set, get) => ({
     const user = data?.user;
     if (!user?.id) return null;
 
-    const { data: profile, error: profileErr } = await sb.from('profiles').select('id').eq('id', user.id).maybeSingle();
-    if (profileErr) return profileErr;
-
-    if (!profile) {
-      await sb.auth.signOut();
-      return { message: 'Account is not registered. Contact your admin to create your member profile.' };
-    }
-
+    // Let the auth listener create a pending profile if this is a new user.
     return null;
   },
 
@@ -108,20 +101,38 @@ export const useStore = create((set, get) => ({
       return { error: null };
     }
 
-    // If there's no profile row, check for an auth-scoped rejection notification (set when admin deleted the profile)
     if (!profile) {
-      const { data: authNotif, error: notifErr } = await sb.from('notifications')
-        .select('*').eq('recipient_type', 'auth').eq('recipient_id', user.id).eq('type', 'rejected').maybeSingle();
-      if (!notifErr && authNotif) {
-        try { localStorage.setItem('sb_auth_message', authNotif.message || 'Your registration was rejected by an administrator.'); } catch (e) {}
-        // remove the one-time auth notification
-        await sb.from('notifications').delete().eq('id', authNotif.id);
-        await sb.auth.signOut();
-        return { error: { message: authNotif.message || 'Your registration was rejected by an administrator.' } };
+      const payload = {
+        id: user.id,
+        role: 'pending',
+        full_name: user.user_metadata?.full_name || user.email || null,
+        company_id: null
+      };
+      const { data: newProfile, error: newProfileErr } = await sb.from('profiles').insert(payload).select('*').maybeSingle();
+      if (newProfileErr) {
+        const isDuplicate = newProfileErr.code === '23505' || (newProfileErr.message || '').toLowerCase().includes('duplicate key');
+        if (isDuplicate) {
+          const { data: existingProfile, error: existingErr } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+          if (!existingErr && existingProfile) {
+            profile = existingProfile;
+          } else {
+            try {
+              window.localStorage.setItem('sb_debug_profile_insert_error', JSON.stringify({ payload, error: newProfileErr }, null, 2));
+            } catch (e) {}
+            await sb.auth.signOut();
+            return { error: { message: 'This account is not registered. Contact your admin to create your member profile.' } };
+          }
+        } else {
+          try {
+            window.localStorage.setItem('sb_debug_profile_insert_error', JSON.stringify({ payload, error: newProfileErr }, null, 2));
+            window.localStorage.setItem('sb_auth_message', 'Registration failed: ' + (newProfileErr.message || 'Unknown error'));
+          } catch (e) {}
+          await sb.auth.signOut();
+          return { error: { message: 'This account is not registered. Contact your admin to create your member profile.' } };
+        }
+      } else {
+        profile = newProfile;
       }
-
-      await sb.auth.signOut();
-      return { error: { message: 'This account is not registered. Contact your admin to create your member profile.' } };
     }
 
     const isAdmin = profile?.role === 'admin';
@@ -168,6 +179,8 @@ export const useStore = create((set, get) => ({
       actingMemberId = matched ? matched.id : null;
       if (actingMemberId) {
         localStorage.setItem('sb_acting_member_id', actingMemberId);
+      } else {
+        localStorage.removeItem('sb_acting_member_id');
       }
     }
 

@@ -149,11 +149,18 @@ export function MembersView() {
     if (!error) {
       // Also disassociate the linked profile so the auth user is not reactivated
       // by a stale member profile after deletion.
-      let profileQuery = sb.from('profiles').select('id').eq('company_id', member.company_id).eq('full_name', member.contact_name).eq('role', 'member').maybeSingle();
-      if (member.email) {
-        profileQuery = sb.from('profiles').select('id').eq('email', member.email).maybeSingle();
+      let profileQuery = sb.from('profiles')
+        .select('id')
+        .eq('company_id', member.company_id)
+        .eq('role', 'member');
+      if (member.email && member.contact_name) {
+        profileQuery = profileQuery.or(`email.eq.${member.email},full_name.eq.${member.contact_name}`);
+      } else if (member.email) {
+        profileQuery = profileQuery.eq('email', member.email);
+      } else if (member.contact_name) {
+        profileQuery = profileQuery.eq('full_name', member.contact_name);
       }
-      const { data: matchingProfile, error: profileErr } = await profileQuery;
+      const { data: matchingProfile, error: profileErr } = await profileQuery.maybeSingle();
       if (!profileErr && matchingProfile?.id) {
         await sb.from('profiles').update({ company_id: null, role: 'pending' }).eq('id', matchingProfile.id);
       }

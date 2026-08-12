@@ -70,6 +70,7 @@ export function CalendarView() {
       .gte('booking_date', rangeStart)
       .lte('booking_date', rangeEnd)
       .neq('status', 'cancelled')
+      .neq('status', 'rejected')
       .order('start_time');
     // Company users can see all visible bookings on the shared calendar, while quota stays scoped to their company.
     const { data, error } = await q;
