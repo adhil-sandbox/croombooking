@@ -57,8 +57,21 @@ export const useStore = create((set, get) => ({
   },
 
   signIn: async (email, password) => {
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    return error;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) return error;
+
+    const user = data?.user;
+    if (!user?.id) return null;
+
+    const { data: profile, error: profileErr } = await sb.from('profiles').select('id').eq('id', user.id).maybeSingle();
+    if (profileErr) return profileErr;
+
+    if (!profile) {
+      await sb.auth.signOut();
+      return { message: 'Account is not registered. Contact your admin to create your member profile.' };
+    }
+
+    return null;
   },
 
   signInWithGoogle: async () => {
@@ -84,6 +97,11 @@ export const useStore = create((set, get) => ({
       .from('profiles').select('*').eq('id', user.id).maybeSingle();
 
     if (!profile) {
+      const provider = user.app_metadata?.provider;
+      if (provider === 'email') {
+        await sb.auth.signOut();
+        return { error: { message: 'Account is not registered. Contact your admin to create your member profile.' } };
+      }
       const fullName = user.user_metadata?.full_name || user.email;
       const { data: newProfile } = await sb.from('profiles').insert({
         id: user.id,

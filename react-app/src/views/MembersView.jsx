@@ -95,6 +95,33 @@ export function MembersView() {
     load();
   }
 
+  async function handleRejectUser(profileId) {
+    if (!window.confirm('Reject this registration request?')) return;
+    setLoading(true);
+    const { error } = await sb.from('profiles').delete().eq('id', profileId);
+    setLoading(false);
+
+    if (error) {
+      toast('Failed to reject registration: ' + error.message, 'err');
+    } else {
+      toast('Registration rejected.', 'ok');
+      load();
+    }
+  }
+
+  async function handleRejectUser(profileId) {
+    if (!window.confirm('Reject this registration request?')) return;
+    setLoading(true);
+    const { error } = await sb.from('profiles').update({ role: 'rejected', company_id: null }).eq('id', profileId);
+    setLoading(false);
+    if (error) {
+      toast('Failed to reject registration: ' + error.message, 'err');
+    } else {
+      toast('Registration rejected.', 'ok');
+      load();
+    }
+  }
+
   async function handleDeleteCompany(company) {
     if (!window.confirm(`Are you sure you want to delete "${company.name}"? This will delete the company. It will fail if bookings or other records reference it.`)) return;
     setLoading(true);
@@ -125,6 +152,20 @@ export function MembersView() {
     if (!window.confirm(`Are you sure you want to delete member "${member.contact_name}"?`)) return;
     setLoading(true);
     const { error } = await sb.from('members').delete().eq('id', member.id);
+
+    if (!error) {
+      // Also disassociate the linked profile so the auth user is not reactivated
+      // by a stale member profile after deletion.
+      let profileQuery = sb.from('profiles').select('id').eq('company_id', member.company_id).eq('full_name', member.contact_name).eq('role', 'member').maybeSingle();
+      if (member.email) {
+        profileQuery = sb.from('profiles').select('id').eq('email', member.email).maybeSingle();
+      }
+      const { data: matchingProfile, error: profileErr } = await profileQuery;
+      if (!profileErr && matchingProfile?.id) {
+        await sb.from('profiles').update({ company_id: null, role: 'pending' }).eq('id', matchingProfile.id);
+      }
+    }
+
     setLoading(false);
     if (error) {
       if (error.code === '23503' || error.message.includes('foreign key')) {
@@ -230,6 +271,9 @@ export function MembersView() {
                           ) : (
                             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>No companies yet</span>
                           )}
+                          <button className="btn btn-sm btn-danger" onClick={() => handleRejectUser(p.id)}>
+                            Reject
+                          </button>
                           <button className="btn btn-sm" style={{ borderStyle: 'dashed' }} onClick={() => setCreateCompanyTarget(p)}>
                             + New Company
                           </button>
