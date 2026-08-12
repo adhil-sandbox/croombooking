@@ -984,7 +984,7 @@ tr:hover td {
 
 .cal-grid {
   display: grid;
-  width: 100%;
+  width: max-content;
   min-width: 100%;
   position: relative;
   grid-template-rows: auto 1fr;
@@ -1010,6 +1010,10 @@ tr:hover td {
 
 .cal-head-cell:first-child {
   border-left: none;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: var(--bg);
 }
 
 .cal-head-cell .room-dot {

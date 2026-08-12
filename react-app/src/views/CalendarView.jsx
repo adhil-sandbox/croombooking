@@ -204,7 +204,7 @@ export function CalendarView() {
         {calMode === 'month'
           ? <MonthGrid days={days} bookings={bookings} calAnchor={calAnchor}
             rooms={rooms} ROOM_COLORS={ROOM_COLORS} companies={companies}
-            onAddDay={d => setBookingModal({ date: d, roomId: selectedRoomId && selectedRoomId !== 'all' ? selectedRoomId : undefined })}
+            onAddDay={d => setBookingModal({ date: d })}
             onBooking={b => setDetailBooking(b)} />
           : <DayWeekGrid
             columns={columns} bookings={bookings}
