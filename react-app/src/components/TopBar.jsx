@@ -13,48 +13,55 @@ export function TopBar() {
   return (
     <>
       <div className="topbar">
-        <div className="topbar-title-group">
-          <div className="topbar-brand-row">
-            <img src={sandboxLogo} alt="Sandbox" className="mobile-brand-img" />
-          </div>
+        <div className="topbar-left">
+          <img src={sandboxLogo} alt="Sandbox" className="mobile-brand-img" />
+          {!isAdmin && company && (
+            <div className="topbar-acting-info desktop-only">
+              <span className="nav-section-label">Booking as:</span>
+              <strong className="acting-company-name">{company.name}</strong>
+              {member && (
+                <span className="acting-member-name">👤 {member.contact_name}</span>
+              )}
+            </div>
+          )}
         </div>
-        <div className="topbar-actions">
-          <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          <button className="icon-btn mobile-signout-icon" onClick={signOut} title="Sign out">
-            🔓
-          </button>
-          <button
-            className="icon-btn"
-            title="Notifications"
-            style={{ position: 'relative' }}
-            onClick={() => setShowNotifs(true)}
-          >
-            🔔
-            {unread > 0 && (
-              <span style={{
-                position: 'absolute', top: 4, right: 4,
-                width: 8, height: 8, background: 'var(--danger)',
-                borderRadius: '50%', display: 'block'
-              }} />
-            )}
-          </button>
+
+        <div className="topbar-right">
+          <div className="topbar-actions">
+            <button className="icon-btn" onClick={toggleTheme} title="Toggle theme">
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <button className="icon-btn mobile-signout-icon" onClick={signOut} title="Sign out">
+              🔓
+            </button>
+            <button
+              className="icon-btn"
+              title="Notifications"
+              style={{ position: 'relative' }}
+              onClick={() => setShowNotifs(true)}
+            >
+              🔔
+              {unread > 0 && (
+                <span style={{
+                  position: 'absolute', top: 4, right: 4,
+                  width: 8, height: 8, background: 'var(--danger)',
+                  borderRadius: '50%', display: 'block'
+                }} />
+              )}
+            </button>
+          </div>
+
+          {!isAdmin && company && (
+            <div className="topbar-acting-info mobile-under-buttons">
+              <span className="nav-section-label">Booking as:</span>
+              <strong className="acting-company-name">{company.name}</strong>
+              {member && (
+                <span className="acting-member-name">👤 {member.contact_name}</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
-
-      {!isAdmin && company && (
-        <div className="mobile-acting-box">
-          <div>
-            <div className="acting-company-name">{company.name}</div>
-            {member && (
-              <div className="mobile-acting-member-name" style={{ fontSize: 12, marginTop: 2 }}>
-                👤 {member.contact_name}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {showNotifs && <NotificationsPanel onClose={() => setShowNotifs(false)} />}
     </>

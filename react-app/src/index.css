@@ -190,39 +190,74 @@ a {
    Top bar
    ============================================================ */
 .topbar {
-  height: var(--topbar-height);
-  flex: 0 0 var(--topbar-height);
+  height: auto;
+  min-height: var(--topbar-height);
+  flex: 0 0 auto;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 49px 36px;
+  padding: 12px 24px;
   gap: 12px;
   background: var(--bg);
   z-index: 20;
 }
 
-.topbar h1 {
-  font-size: 15px;
-  font-weight: 650;
-  margin: 0;
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.topbar-title-group {
+.topbar-right {
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
 }
 
-.topbar-brand-row {
-  display: flex;
-  align-items: center;
+.topbar-acting-info {
+  display: inline-flex;
+  align-items: baseline;
   gap: 8px;
+  white-space: nowrap;
+}
+
+.topbar-acting-info .nav-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-faint);
+  font-weight: 600;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1.2;
+}
+
+.topbar-acting-info .acting-company-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1.2;
+}
+
+.topbar-acting-info .acting-member-name {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1.2;
+}
+
+.mobile-under-buttons {
+  display: none !important;
 }
 
 .mobile-brand-img {
   display: none;
-  width: 248px;
+  width: 148px;
   max-width: 100%;
   height: auto;
   object-fit: contain;
@@ -236,46 +271,56 @@ button.icon-btn.mobile-signout-icon {
   button.icon-btn.mobile-signout-icon {
     display: inline-flex;
   }
-}
 
-@media (max-width: 768px) {
   .topbar {
     background: #2e4b93;
     color: #ffffff;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  }
-
-  .topbar-title-group {
-    align-items: flex-start;
+    padding: 10px 16px;
   }
 
   .mobile-brand-img {
     display: block;
+    margin-left: 0;
   }
 
-  .topbar h1 {
-    display: none;
+  .desktop-only {
+    display: none !important;
   }
 
-  .topbar-title-group {
-    width: 100%;
+  .mobile-under-buttons {
+    display: inline-flex !important;
+    align-items: baseline;
+    gap: 6px;
+    white-space: nowrap;
+    margin-top: 4px;
   }
 
-  .topbar-brand-row {
-    width: 100%;
-    justify-content: flex-start;
+  .mobile-under-buttons .nav-section-label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 1.2;
   }
 
-  .mobile-brand-img {
-    margin-left: -60px;
+  .mobile-under-buttons .acting-company-name {
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 1.2;
   }
 
-  .topbar-company-info {
+  .mobile-under-buttons .acting-member-name {
     color: rgba(255, 255, 255, 0.85);
-  }
-
-  .topbar .company-label {
-    color: rgba(255, 255, 255, 0.6);
+    font-size: 11.5px;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 1.2;
   }
 
   .topbar .icon-btn {
@@ -286,32 +331,6 @@ button.icon-btn.mobile-signout-icon {
 
   .topbar .icon-btn:hover {
     background: rgba(255, 255, 255, 0.25);
-  }
-
-  .mobile-acting-box {
-    display: flex;
-    background: #2e4b93;
-    color: #ffffff;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  }
-
-  .mobile-acting-box .acting-company-name {
-    color: #ffffff;
-    font-weight: 650;
-  }
-
-  .mobile-acting-member-name {
-    color: rgba(255, 255, 255, 0.75);
-  }
-}
-
-@media (min-width: 769px) {
-  .mobile-brand-img {
-    display: none;
-  }
-
-  .topbar h1 {
-    display: block;
   }
 }
 
@@ -964,9 +983,9 @@ tr:hover td {
 }
 
 .cal-grid {
-  display: inline-grid;
-  width: max-content;
-  min-width: 520px;
+  display: grid;
+  width: 100%;
+  min-width: 100%;
   position: relative;
   grid-template-rows: auto 1fr;
 }

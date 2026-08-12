@@ -22,19 +22,6 @@ export function Sidebar() {
         <img src={sandboxLogo} alt="Sandbox" className="brand-img" />
       </div>
 
-      {/* Acting box for member logins */}
-      {!isAdmin && company && (
-        <div className="acting-box">
-          <div className="nav-section-label">Booking as</div>
-          <div className="acting-company-name" style={{ color: '#fff' }}>{company.name}</div>
-          {member && (
-            <div className="acting-member-name" style={{ fontSize: 12.5, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
-              👤 {member.contact_name}
-            </div>
-          )}
-        </div>
-      )}
-
       <NavItem v="calendar" current={view} setView={setView} />
       <NavItem v="mybookings" current={view} setView={setView} />
 

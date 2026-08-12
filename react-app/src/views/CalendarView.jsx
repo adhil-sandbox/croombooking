@@ -33,6 +33,16 @@ export function CalendarView() {
   const [detailBooking, setDetailBooking] = useState(null);
   const [quota, setQuota] = useState(null);
 
+  // Room filter state (defaults to SB1)
+  const [selectedRoomId, setSelectedRoomId] = useState('');
+
+  useEffect(() => {
+    if (rooms.length > 0 && !selectedRoomId) {
+      const sb1 = rooms.find(r => r.name.toUpperCase().includes('SB1')) || rooms[0];
+      if (sb1) setSelectedRoomId(sb1.id);
+    }
+  }, [rooms, selectedRoomId]);
+
   // Derived range
   let rangeStart, rangeEnd, days;
   if (calMode === 'month') {
@@ -100,9 +110,13 @@ export function CalendarView() {
     else setCalAnchor(addDays(anchor, 1));
   }
 
+  const activeRooms = selectedRoomId && selectedRoomId !== 'all'
+    ? rooms.filter(r => r.id === selectedRoomId)
+    : rooms;
+
   const columns = [];
   if (calMode !== 'month') {
-    days.forEach(day => rooms.forEach(room => columns.push({ day, room })));
+    days.forEach(day => activeRooms.forEach(room => columns.push({ day, room })));
   }
 
   return (
@@ -116,6 +130,31 @@ export function CalendarView() {
           <strong className="cal-title">{titleStr}</strong>
         </div>
         <div className="right">
+          {calMode !== 'month' && rooms.length > 0 && (
+            <select
+              className="room-select-dropdown"
+              value={selectedRoomId}
+              onChange={e => setSelectedRoomId(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-strong)',
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {rooms.map(r => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+              <option value="all">All Rooms</option>
+            </select>
+          )}
+
           <div className="segmented">
             {['day', 'week', 'month'].map(m => (
               <button key={m} className={calMode === m ? 'active' : ''}
@@ -132,7 +171,7 @@ export function CalendarView() {
                 toast('Your company is deactivated and cannot make bookings.', 'err');
                 return;
               }
-              setBookingModal({});
+              setBookingModal({ roomId: selectedRoomId && selectedRoomId !== 'all' ? selectedRoomId : undefined });
             }}
             disabled={!isAdmin && actingCompany() && !actingCompany().is_active}
             title={!isAdmin && actingCompany() && !actingCompany().is_active ? 'Company deactivated' : ''}
@@ -165,7 +204,7 @@ export function CalendarView() {
         {calMode === 'month'
           ? <MonthGrid days={days} bookings={bookings} calAnchor={calAnchor}
             rooms={rooms} ROOM_COLORS={ROOM_COLORS} companies={companies}
-            onAddDay={d => setBookingModal({ date: d })}
+            onAddDay={d => setBookingModal({ date: d, roomId: selectedRoomId && selectedRoomId !== 'all' ? selectedRoomId : undefined })}
             onBooking={b => setDetailBooking(b)} />
           : <DayWeekGrid
             columns={columns} bookings={bookings}
@@ -400,17 +439,28 @@ function DayWeekGrid({ columns, bookings, ROOM_COLORS, calMode, companies, onCel
   );
 }
 
+function addOneHour(timeStr) {
+  if (!timeStr) return SLOTS[1] || BUSINESS_END;
+  const startMin = timeToMinutes(timeStr);
+  const endMin = Math.min(startMin + 60, timeToMinutes(BUSINESS_END));
+  return minutesToTime(endMin);
+}
+
 /* ── Booking create modal ───────────────────────────────── */
 function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompanyId, actingMemberId, user, onClose, onSuccess }) {
   const timeOptions = SLOTS.concat([BUSINESS_END]);
   const activeCompanies = companies.filter(c => c.is_active);
 
+  const availableRooms = prefill?.roomId && prefill.roomId !== 'all'
+    ? rooms.filter(r => r.id === prefill.roomId)
+    : rooms;
+
   const [companyId, setCompanyId] = useState(prefill.companyId || actingCompanyId || activeCompanies[0]?.id || '');
   const [memberId, setMemberId] = useState('');
-  const [roomId, setRoomId] = useState(prefill.roomId || rooms[0]?.id || '');
+  const [roomId, setRoomId] = useState(prefill.roomId && prefill.roomId !== 'all' ? prefill.roomId : (availableRooms[0]?.id || rooms[0]?.id || ''));
   const [date, setDate] = useState(prefill.date || fmtDate(new Date()));
   const [startTime, setStartTime] = useState(prefill.startTime || SLOTS[0]);
-  const [endTime, setEndTime] = useState(prefill.endTime || SLOTS[1] || BUSINESS_END);
+  const [endTime, setEndTime] = useState(prefill.endTime || addOneHour(prefill.startTime || SLOTS[0]));
   const [notes, setNotes] = useState('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
@@ -552,7 +602,7 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
       <div className="field">
         <label>Conference room</label>
         <select value={roomId} onChange={e => setRoomId(e.target.value)}>
-          {rooms.map(r => <option key={r.id} value={r.id}>{r.name} · {r.seats} seats</option>)}
+          {availableRooms.map(r => <option key={r.id} value={r.id}>{r.name} · {r.seats} seats</option>)}
         </select>
       </div>
 
@@ -564,7 +614,11 @@ function BookingModal({ prefill, rooms, companies, members, isAdmin, actingCompa
       <div className="field-row">
         <div className="field">
           <label>Start time</label>
-          <select value={startTime} onChange={e => setStartTime(e.target.value)}>
+          <select value={startTime} onChange={e => {
+            const newStart = e.target.value;
+            setStartTime(newStart);
+            setEndTime(addOneHour(newStart));
+          }}>
             {timeOptions.map(t => <option key={t} value={t}>{fmtTime12(t)}</option>)}
           </select>
         </div>
