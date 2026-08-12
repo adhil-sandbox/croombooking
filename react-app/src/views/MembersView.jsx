@@ -35,7 +35,7 @@ export function MembersView() {
       sb.from('companies').select('*, members(id,company_id,contact_name,email,phone,is_active)').order('name'),
       sb.from('monthly_usage').select('*').eq('year_month', ym),
       sb.from('profiles').select('id,company_id').eq('role', 'member'),
-      sb.from('profiles').select('*').or('role.eq.pending,and(role.eq.member,company_id.is.null)').neq('role', 'admin'),
+      sb.from('profiles').select('*').eq('role', 'pending'),
       sb.from('rooms').select('*').order('name'),
     ]);
     const usageMap = {}; (usage || []).forEach(u => usageMap[u.company_id] = u);
@@ -98,28 +98,21 @@ export function MembersView() {
   async function handleRejectUser(profileId) {
     if (!window.confirm('Reject this registration request?')) return;
     setLoading(true);
-    const { error } = await sb.from('profiles').delete().eq('id', profileId);
-    setLoading(false);
 
-    if (error) {
-      toast('Failed to reject registration: ' + error.message, 'err');
-    } else {
-      toast('Registration rejected.', 'ok');
-      load();
+    // Mark the profile as rejected so sign-in logic will surface rejection immediately.
+    // Using update avoids issues inserting auth-scoped notifications with incompatible recipient_id types.
+    const { error: updErr } = await sb.from('profiles').update({ role: 'rejected', company_id: null }).eq('id', profileId);
+    if (updErr) {
+      setLoading(false);
+      toast('Failed to reject registration: ' + (updErr?.message || 'Profile could not be updated.'), 'err');
+      return;
     }
-  }
 
-  async function handleRejectUser(profileId) {
-    if (!window.confirm('Reject this registration request?')) return;
-    setLoading(true);
-    const { error } = await sb.from('profiles').update({ role: 'rejected', company_id: null }).eq('id', profileId);
+    // Remove from pending list in the UI and reload
+    setPendingProfiles(prev => (prev || []).filter(p => p.id !== profileId));
+    await load();
     setLoading(false);
-    if (error) {
-      toast('Failed to reject registration: ' + error.message, 'err');
-    } else {
-      toast('Registration rejected.', 'ok');
-      load();
-    }
+    toast('Registration rejected and user notified.', 'ok');
   }
 
   async function handleDeleteCompany(company) {

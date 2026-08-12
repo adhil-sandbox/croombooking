@@ -8,6 +8,7 @@ export const useStore = create((set, get) => ({
   profile: null,
   isAdmin: false,
   isPending: false,
+  isRejected: false,
   actingCompanyId: null,
   actingMemberId: localStorage.getItem('sb_acting_member_id') || null,
 
@@ -96,26 +97,39 @@ export const useStore = create((set, get) => ({
     let { data: profile } = await sb
       .from('profiles').select('*').eq('id', user.id).maybeSingle();
 
+    // Diagnostic: persist the fetched profile for debugging sign-in mismatches
+    try { window.localStorage.setItem('sb_debug_profile', JSON.stringify(profile || null)); } catch (e) {}
+    try { console.debug('onSignedIn: fetched profile', profile); } catch (e) {}
+
+    // If the account has been explicitly rejected (existing profile), keep the user signed in
+    // so they can re-submit their registration from the rejected UI.
+    if (profile && profile.role === 'rejected') {
+      set({ user, profile, isAdmin: false, isPending: false, isRejected: true, actingCompanyId: null });
+      return { error: null };
+    }
+
+    // If there's no profile row, check for an auth-scoped rejection notification (set when admin deleted the profile)
     if (!profile) {
-      const provider = user.app_metadata?.provider;
-      if (provider === 'email') {
+      const { data: authNotif, error: notifErr } = await sb.from('notifications')
+        .select('*').eq('recipient_type', 'auth').eq('recipient_id', user.id).eq('type', 'rejected').maybeSingle();
+      if (!notifErr && authNotif) {
+        try { localStorage.setItem('sb_auth_message', authNotif.message || 'Your registration was rejected by an administrator.'); } catch (e) {}
+        // remove the one-time auth notification
+        await sb.from('notifications').delete().eq('id', authNotif.id);
         await sb.auth.signOut();
-        return { error: { message: 'Account is not registered. Contact your admin to create your member profile.' } };
+        return { error: { message: authNotif.message || 'Your registration was rejected by an administrator.' } };
       }
-      const fullName = user.user_metadata?.full_name || user.email;
-      const { data: newProfile } = await sb.from('profiles').insert({
-        id: user.id,
-        role: 'pending',
-        full_name: fullName,
-      }).select().single();
-      profile = newProfile;
+
+      await sb.auth.signOut();
+      return { error: { message: 'This account is not registered. Contact your admin to create your member profile.' } };
     }
 
     const isAdmin = profile?.role === 'admin';
+    const isRejected = profile?.role === 'rejected';
     const isPending = profile?.role === 'pending' || (!isAdmin && !profile?.company_id);
     const actingCompanyId = profile?.company_id || null;
 
-    set({ user, profile, isAdmin, isPending, actingCompanyId });
+    set({ user, profile, isAdmin, isPending, isRejected, actingCompanyId });
 
     if (!isPending) {
       await Promise.all([

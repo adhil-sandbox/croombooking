@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import sandboxLogo from '../assets/sandbox-logo.png';
 
@@ -9,6 +9,16 @@ export function AuthView() {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const msg = localStorage.getItem('sb_auth_message');
+      if (msg) {
+        setError(msg);
+        localStorage.removeItem('sb_auth_message');
+      }
+    } catch (e) {}
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();

@@ -10,7 +10,7 @@ import { DashboardView } from './views/DashboardView';
 import { Sidebar }       from './components/Sidebar';
 import { BottomTabBar }  from './components/BottomTabBar';
 import { TopBar }        from './components/TopBar';
-import { ToastContainer } from './components/Toast';
+import { toast, ToastContainer } from './components/Toast';
 
 const VIEWS = {
   calendar:   <CalendarView />,
@@ -21,7 +21,24 @@ const VIEWS = {
 };
 
 export default function App() {
-  const { user, isPending, view, theme, onSignedIn, loadNotifications, signOut } = useStore();
+  const { user, profile, isPending, isRejected, view, theme, onSignedIn, loadNotifications, signOut } = useStore();
+
+  async function resubmitRegistration() {
+    const { data, error } = await sb.from('profiles')
+      .update({ role: 'pending', company_id: null })
+      .eq('id', user.id)
+      .eq('role', 'rejected')
+      .select('*')
+      .maybeSingle();
+
+    if (error || !data) {
+      toast('Could not resubmit your registration. Please try again later.', 'err');
+      return;
+    }
+
+    useStore.setState({ profile: data, isPending: true, isRejected: false });
+    toast('Registration resubmitted for admin approval.', 'ok');
+  }
 
   // Apply theme on mount and on change
   useEffect(() => {
@@ -57,7 +74,7 @@ export default function App() {
         // Reactively clear UI state when Supabase fires sign-out
         // (handles both manual sign-out and session expiry)
         useStore.setState({
-          user: null, profile: null, isAdmin: false, isPending: false,
+          user: null, profile: null, isAdmin: false, isPending: false, isRejected: false,
           actingCompanyId: null, actingMemberId: null,
           rooms: [], companies: [], members: [], monthlyUsage: {},
           notifications: [], ROOM_COLORS: {},
@@ -83,19 +100,57 @@ export default function App() {
     </>
   );
 
+  if (isRejected) return (
+    <>
+      <div className="auth-wrap">
+        <div className="auth-card" style={{ textAlign: 'center', maxWidth: 440 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>❌</div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Registration Rejected</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginBottom: 16 }}>
+            Signed in as <strong>{user.email}</strong>.
+          </p>
+          <div className="notice notice-warn" style={{ textAlign: 'left', marginBottom: 20 }}>
+            Your registration was rejected by an admin. You can submit a new request for review.
+          </div>
+          <button className="btn w-full" style={{ justifyContent: 'center', marginBottom: 10 }} onClick={resubmitRegistration}>
+            Submit a new request
+          </button>
+          <button className="btn w-full" style={{ justifyContent: 'center' }} onClick={() => signOut()}>
+            Sign out
+          </button>
+        </div>
+      </div>
+      <ToastContainer />
+    </>
+  );
+
   if (isPending) return (
     <>
       <div className="auth-wrap">
         <div className="auth-card" style={{ textAlign: 'center', maxWidth: 440 }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>⏳</div>
-          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Account Pending Approval</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+            {profile?.role === 'rejected' ? 'Registration Rejected' : 'Account Pending Approval'}
+          </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 13.5, marginBottom: 16 }}>
             Signed in as <strong>{user.email}</strong>.
           </p>
+          {profile?.role === 'rejected' && (
+            <>
+              <div className="notice notice-warn rejected-registration" style={{ textAlign: 'left', marginBottom: 20 }}>
+                Your registration was rejected by an admin. You can submit a new request for review.
+              </div>
+              <button className="btn w-full" style={{ justifyContent: 'center', marginBottom: 10 }} onClick={resubmitRegistration}>
+                Submit a new request
+              </button>
+            </>
+          )}
+          {profile?.role !== 'rejected' && (
           <div className="notice notice-warn" style={{ textAlign: 'left', marginBottom: 20 }}>
             <span>ℹ️</span>
             <span>Your Google account is registered. An admin must assign your company before you can view and book rooms.</span>
           </div>
+          )}
           <button className="btn w-full" style={{ justifyContent: 'center' }} onClick={() => signOut()}>
             Sign out
           </button>
